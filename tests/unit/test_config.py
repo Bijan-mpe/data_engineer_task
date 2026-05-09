@@ -1,7 +1,8 @@
 """Unit tests for src.core.config — Settings construction and field validation."""
 
-import pytest
 from pathlib import Path
+
+import pytest
 from pydantic import ValidationError
 
 from src.core.config import Settings

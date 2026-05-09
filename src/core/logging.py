@@ -5,6 +5,7 @@ Then use get_logger() in every module.
 """
 
 import logging
+
 import structlog
 
 
@@ -17,10 +18,12 @@ def setup_logging(log_level: str = "INFO") -> None:
         log_level: One of DEBUG, INFO, WARNING, ERROR.
     """
 
-    # Set Python's built-in logging level
+    # force=True reconfigures the root logger even if handlers already exist,
+    # which is necessary when setup_logging() is called more than once (e.g. tests).
     logging.basicConfig(
         format="%(message)s",
         level=getattr(logging, log_level.upper(), logging.INFO),
+        force=True,
     )
 
     # Configure structlog processors

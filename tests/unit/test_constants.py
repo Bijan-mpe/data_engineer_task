@@ -58,13 +58,13 @@ def test_rating_grade_complete_scale():
         "BBB+", "BBB", "BBB-",
         "BB+", "BB", "BB-",
         "B+", "B", "B-",
-        # these values are not in excel file but exist in full a scope score grade. 
+        # these values are not in excel file but exist in full a scope score grade.
         "CCC+", "CCC", "CCC-",
         "CC", "C",
         "SD", "D",
     }
 
-# Note: There is no need of the test  
+# Note: There is no need of the test
 def test_rating_grade_sd_positioned_between_c_and_d():
     """SD (Selective Default) must sit immediately between C and D in declaration order."""
     grades = [g.value for g in RatingGrade]
@@ -73,7 +73,9 @@ def test_rating_grade_sd_positioned_between_c_and_d():
 
 
 def test_pipeline_status_complete_set():
-    assert {s.value for s in PipelineStatus} == {"pending", "running", "success", "failed", "duplicate", "skipped"}
+    assert {s.value for s in PipelineStatus} == {
+        "pending", "running", "success", "failed", "duplicate", "skipped",
+    }
 
 
 def test_liquidity_score_complete_set():

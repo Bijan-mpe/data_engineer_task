@@ -20,7 +20,7 @@ from src.core.constants import (
     PipelineStatus,
     RatingGrade,
 )
-from src.core.db import Base, SessionFactory, engine, get_session
+from src.core.db import Base, SessionFactory, engine, get_session, session_scope
 from src.core.logging import get_logger, setup_logging
 
 __all__ = [
@@ -32,6 +32,7 @@ __all__ = [
     "engine",
     "SessionFactory",
     "get_session",
+    "session_scope",
     # logging
     "get_logger",
     "setup_logging",
