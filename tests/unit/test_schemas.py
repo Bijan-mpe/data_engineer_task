@@ -1,7 +1,5 @@
 """Unit tests for src.models.schemas — pipeline DTO validation constraints."""
 
-from datetime import datetime, timezone
-
 import pytest
 from pydantic import ValidationError
 
@@ -15,48 +13,6 @@ from src.models.schemas import (
     ScopeMetric,
     ValidationReport,
 )
-
-
-def _base_raw_master(**overrides) -> dict:
-    """Return a minimal valid dict for constructing RawMasterData."""
-    base = {
-        "rated_entity": "Company A",
-        "corporate_sector": "Personal & Household Goods",
-        "rating_methodologies": ["General Corporate Rating Methodology"],
-        "industry_segments": [
-            {
-                "position": 1,
-                "industry_name": "Consumer Products: Non-Discretionary",
-                "risk_score": "A",
-                "weight": 1.0,
-            }
-        ],
-        "reporting_currency": "EUR",
-        "country_of_origin": "Federal Republic of Germany",
-        "accounting_principles": "IFRS",
-        "business_year_end": "December",
-        "business_risk_profile": "B+",
-        "blended_industry_risk_profile": "A",
-        "competitive_positioning": "B+",
-        "market_share": "BB-",
-        "diversification": "B+",
-        "operating_profitability": "BB-",
-        "financial_risk_profile": "C",
-        "leverage": "CCC",
-        "interest_cover": "B-",
-        "cash_flow_cover": "CCC",
-        "liquidity": "-2 notches",
-        "scope_metrics": [
-            {
-                "metric_name": "Scope-adjusted EBITDA interest cover",
-                "year": 2023,
-                "value": 4.862,
-            }
-        ],
-    }
-    base.update(overrides)
-    return base
-
 
 # ── IndustrySegment ───────────────────────────────────────────────────────────
 
@@ -105,30 +61,30 @@ def test_scope_metric_year_bounds_rejected():
         ScopeMetric(metric_name="X", year=2101)
 
 
-# ── RawMasterData — string field constraints ─────────────────────────────────
+# ── RawMasterData — string field constraints ──────────────────────────────────
 
 @pytest.mark.parametrize(
     "field", ["rated_entity", "corporate_sector", "reporting_currency", "country_of_origin"]
 )
-def test_raw_master_data_empty_string_rejected(field: str):
+def test_raw_master_data_empty_string_rejected(field: str, make_raw_master_dict):
     with pytest.raises(ValidationError):
-        RawMasterData(**_base_raw_master(**{field: ""}))
+        RawMasterData(**make_raw_master_dict(**{field: ""}))
 
 
 @pytest.mark.parametrize(
     "field", ["rated_entity", "corporate_sector", "reporting_currency", "country_of_origin"]
 )
-def test_raw_master_data_whitespace_only_rejected(field: str):
+def test_raw_master_data_whitespace_only_rejected(field: str, make_raw_master_dict):
     """str_strip_whitespace strips before min_length check — "   " must be rejected."""
     with pytest.raises(ValidationError):
-        RawMasterData(**_base_raw_master(**{field: "   "}))
+        RawMasterData(**make_raw_master_dict(**{field: "   "}))
 
 
 # ── RawMasterData — weight sum validator ──────────────────────────────────────
 
-def test_raw_master_data_weight_sum_valid_multi_segment():
+def test_raw_master_data_weight_sum_valid_multi_segment(make_raw_master_dict):
     data = RawMasterData(
-        **_base_raw_master(
+        **make_raw_master_dict(
             industry_segments=[
                 {"position": 1, "industry_name": "Seg A", "risk_score": "BBB", "weight": 0.15},
                 {"position": 2, "industry_name": "Seg B", "risk_score": "BB", "weight": 0.85},
@@ -138,10 +94,10 @@ def test_raw_master_data_weight_sum_valid_multi_segment():
     assert len(data.industry_segments) == 2
 
 
-def test_raw_master_data_weight_sum_float_rounding_tolerated():
+def test_raw_master_data_weight_sum_float_rounding_tolerated(make_raw_master_dict):
     """0.333 + 0.333 + 0.334 = 1.0000000000000002 — must not be rejected."""
     data = RawMasterData(
-        **_base_raw_master(
+        **make_raw_master_dict(
             industry_segments=[
                 {"position": 1, "industry_name": "Seg A", "risk_score": "BBB", "weight": 0.333},
                 {"position": 2, "industry_name": "Seg B", "risk_score": "BB", "weight": 0.333},
@@ -152,10 +108,10 @@ def test_raw_master_data_weight_sum_float_rounding_tolerated():
     assert len(data.industry_segments) == 3
 
 
-def test_raw_master_data_weight_sum_invalid_rejected():
+def test_raw_master_data_weight_sum_invalid_rejected(make_raw_master_dict):
     with pytest.raises(ValidationError, match=r"weights must sum to 1\.0"):
         RawMasterData(
-            **_base_raw_master(
+            **make_raw_master_dict(
                 industry_segments=[
                     {"position": 1, "industry_name": "Seg A", "risk_score": "BBB", "weight": 0.3},
                     {"position": 2, "industry_name": "Seg B", "risk_score": "BB", "weight": 0.3},
@@ -164,11 +120,11 @@ def test_raw_master_data_weight_sum_invalid_rejected():
         )
 
 
-def test_raw_master_data_weight_sum_error_includes_actual_value():
+def test_raw_master_data_weight_sum_error_includes_actual_value(make_raw_master_dict):
     """Error message must include the actual sum for debugging."""
     with pytest.raises(ValidationError) as exc_info:
         RawMasterData(
-            **_base_raw_master(
+            **make_raw_master_dict(
                 industry_segments=[
                     {"position": 1, "industry_name": "Seg A", "risk_score": "BBB", "weight": 0.4},
                     {"position": 2, "industry_name": "Seg B", "risk_score": "BB", "weight": 0.4},
@@ -180,16 +136,15 @@ def test_raw_master_data_weight_sum_error_includes_actual_value():
 
 # ── RawMasterData ─────────────────────────────────────────────────────────────
 
-def test_raw_master_data_company_a_valid():
-    data = RawMasterData(**_base_raw_master())
-    assert data.rated_entity == "Company A"
-    assert len(data.industry_segments) == 1
-    assert data.industry_segments[0].risk_score == "A"
+def test_raw_master_data_company_a_valid(raw_master_data):
+    assert raw_master_data.rated_entity == "Company A"
+    assert len(raw_master_data.industry_segments) == 1
+    assert raw_master_data.industry_segments[0].risk_score == "A"
 
 
-def test_raw_master_data_company_b_multi_segment():
+def test_raw_master_data_company_b_multi_segment(make_raw_master_dict):
     data = RawMasterData(
-        **_base_raw_master(
+        **make_raw_master_dict(
             industry_segments=[
                 {
                     "position": 1,
@@ -210,26 +165,25 @@ def test_raw_master_data_company_b_multi_segment():
     assert data.industry_segments[1].weight == 0.85
 
 
-def test_raw_master_data_optional_fields_absent():
-    data = RawMasterData(**_base_raw_master())
-    assert data.segmentation_criteria is None
-    assert data.sector_specific_factor_1 is None
-    assert data.sector_specific_factor_2 is None
+def test_raw_master_data_optional_fields_absent(raw_master_data):
+    assert raw_master_data.segmentation_criteria is None
+    assert raw_master_data.sector_specific_factor_1 is None
+    assert raw_master_data.sector_specific_factor_2 is None
 
 
-def test_raw_master_data_empty_methodologies_rejected():
+def test_raw_master_data_empty_methodologies_rejected(make_raw_master_dict):
     with pytest.raises(ValidationError):
-        RawMasterData(**_base_raw_master(rating_methodologies=[]))
+        RawMasterData(**make_raw_master_dict(rating_methodologies=[]))
 
 
-def test_raw_master_data_empty_segments_rejected():
+def test_raw_master_data_empty_segments_rejected(make_raw_master_dict):
     with pytest.raises(ValidationError):
-        RawMasterData(**_base_raw_master(industry_segments=[]))
+        RawMasterData(**make_raw_master_dict(industry_segments=[]))
 
 
-def test_raw_master_data_empty_metrics_rejected():
+def test_raw_master_data_empty_metrics_rejected(make_raw_master_dict):
     with pytest.raises(ValidationError):
-        RawMasterData(**_base_raw_master(scope_metrics=[]))
+        RawMasterData(**make_raw_master_dict(scope_metrics=[]))
 
 
 # ── FieldError / ValidationReport ────────────────────────────────────────────
@@ -281,25 +235,18 @@ def test_pipeline_run_report_failed_defaults():
 
 # ── ExtractedFile ─────────────────────────────────────────────────────────────
 
-def test_extracted_file_wraps_raw_master_data():
+def test_extracted_file_wraps_raw_master_data(raw_master_data, now_utc):
     """ExtractedFile must carry file lineage alongside the extracted content."""
-    raw = RawMasterData(**_base_raw_master())
     ef = ExtractedFile(
         filename="corporates_A_1.xlsm",
         file_hash="a" * 64,
-        extracted_at=datetime(2024, 1, 1, tzinfo=timezone.utc),
-        data=raw,
+        extracted_at=now_utc,
+        data=raw_master_data,
     )
     assert ef.filename == "corporates_A_1.xlsm"
     assert ef.data.rated_entity == "Company A"
 
 
-def test_extracted_file_empty_filename_rejected():
-    raw = RawMasterData(**_base_raw_master())
+def test_extracted_file_empty_filename_rejected(raw_master_data, now_utc):
     with pytest.raises(ValidationError):
-        ExtractedFile(
-            filename="",
-            file_hash="a" * 64,
-            extracted_at=datetime(2024, 1, 1, tzinfo=timezone.utc),
-            data=raw,
-        )
+        ExtractedFile(filename="", file_hash="a" * 64, extracted_at=now_utc, data=raw_master_data)

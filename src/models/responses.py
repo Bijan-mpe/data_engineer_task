@@ -14,7 +14,6 @@ from_attributes=True.
 
 from __future__ import annotations
 
-import uuid
 from datetime import date, datetime
 
 from pydantic import BaseModel, ConfigDict
@@ -56,7 +55,7 @@ class CompanyResponse(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
-    id: uuid.UUID
+    id: int
     rated_entity: str
     corporate_sector: str
     country_of_origin: str
@@ -71,9 +70,10 @@ class SnapshotSummaryResponse(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
-    id: uuid.UUID
-    company_id: uuid.UUID
+    id: int
+    company_id: int
     upload_id: int
+    version_number: int
     snapshot_date: date
     valid_from: datetime
     valid_to: datetime | None
@@ -94,8 +94,9 @@ class SnapshotDetailResponse(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
-    id: uuid.UUID
+    id: int
     company: CompanyResponse
+    version_number: int
     snapshot_date: date
     valid_from: datetime
     valid_to: datetime | None

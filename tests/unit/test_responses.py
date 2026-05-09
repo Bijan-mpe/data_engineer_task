@@ -1,8 +1,7 @@
 """Unit tests for src.models.responses — API response model construction."""
 
-from datetime import date, datetime, timezone
+from datetime import date
 from types import SimpleNamespace
-from uuid import uuid4
 
 from src.models.responses import (
     CompanyHistoryResponse,
@@ -16,43 +15,6 @@ from src.models.responses import (
     UploadAuditResponse,
     UploadStatsResponse,
 )
-
-_NOW = datetime(2024, 1, 1, tzinfo=timezone.utc)
-
-
-def _company_ns(**overrides) -> SimpleNamespace:
-    """Minimal ORM-like namespace for a company row (stable identity fields only)."""
-    attrs = dict(
-        id=uuid4(),
-        rated_entity="Company A",
-        corporate_sector="Personal & Household Goods",
-        country_of_origin="Federal Republic of Germany",
-    )
-    attrs.update(overrides)
-    return SimpleNamespace(**attrs)
-
-
-def _snapshot_ns(**overrides) -> SimpleNamespace:
-    """Minimal ORM-like namespace for a snapshot summary row."""
-    attrs = dict(
-        id=uuid4(),
-        company_id=uuid4(),
-        upload_id=1,
-        snapshot_date=date(2024, 1, 1),
-        valid_from=_NOW,
-        valid_to=None,
-        is_current=True,
-        rated_entity="Company A",
-        corporate_sector="Personal & Household Goods",
-        country_of_origin="Federal Republic of Germany",
-        reporting_currency="EUR",
-        business_risk_profile="B+",
-        financial_risk_profile="C",
-        liquidity="-2 notches",
-    )
-    attrs.update(overrides)
-    return SimpleNamespace(**attrs)
-
 
 # ── from_attributes contract ──────────────────────────────────────────────────
 
@@ -75,8 +37,8 @@ def test_orm_backed_models_have_from_attributes():
 
 # ── individual model round-trips ──────────────────────────────────────────────
 
-def test_company_response_from_orm_object():
-    resp = CompanyResponse.model_validate(_company_ns())
+def test_company_response_from_orm_object(make_company_ns):
+    resp = CompanyResponse.model_validate(make_company_ns())
     assert resp.rated_entity == "Company A"
     assert resp.country_of_origin == "Federal Republic of Germany"
 
@@ -97,26 +59,26 @@ def test_scope_metric_response_none_value():
     assert resp.value is None
 
 
-def test_snapshot_summary_response_from_orm():
-    resp = SnapshotSummaryResponse.model_validate(_snapshot_ns())
+def test_snapshot_summary_response_from_orm(make_snapshot_ns):
+    resp = SnapshotSummaryResponse.model_validate(make_snapshot_ns())
     assert resp.business_risk_profile == "B+"
     assert resp.rated_entity == "Company A"
     assert resp.reporting_currency == "EUR"
     assert isinstance(resp.snapshot_date, date)
 
 
-def test_snapshot_summary_scd2_fields():
+def test_snapshot_summary_scd2_fields(make_snapshot_ns, now_utc):
     """SCD2 tracking fields must round-trip; valid_to=None means currently active."""
-    resp = SnapshotSummaryResponse.model_validate(_snapshot_ns())
+    resp = SnapshotSummaryResponse.model_validate(make_snapshot_ns())
     assert resp.is_current is True
     assert resp.valid_to is None
-    assert resp.valid_from == _NOW
+    assert resp.valid_from == now_utc
 
 
 # ── nested SnapshotDetailResponse ────────────────────────────────────────────
 
-def test_snapshot_detail_response_with_nested_objects():
-    company = _company_ns()
+def test_snapshot_detail_response_with_nested_objects(make_company_ns, now_utc):
+    company = make_company_ns()
     segment = SimpleNamespace(
         position=1, industry_name="Consumer Products", risk_score="A", weight=1.0
     )
@@ -127,10 +89,11 @@ def test_snapshot_detail_response_with_nested_objects():
         metric_name="Scope-adjusted debt/EBITDA", year=2023, is_estimate=False, value=2.5
     )
     obj = SimpleNamespace(
-        id=uuid4(),
+        id=1,
         company=company,
+        version_number=1,
         snapshot_date=date(2024, 1, 1),
-        valid_from=_NOW,
+        valid_from=now_utc,
         valid_to=None,
         is_current=True,
         reporting_currency="EUR",
@@ -163,14 +126,14 @@ def test_snapshot_detail_response_with_nested_objects():
 
 # ── upload audit responses ────────────────────────────────────────────────────
 
-def test_upload_audit_response_from_orm():
+def test_upload_audit_response_from_orm(now_utc):
     obj = SimpleNamespace(
         id=42,
         filename="corporates_A_1.xlsm",
         file_hash="abc123",
         status="success",
-        created_at=_NOW,
-        processed_at=_NOW,
+        created_at=now_utc,
+        processed_at=now_utc,
         record_count=10,
         error_message=None,
     )
@@ -180,14 +143,14 @@ def test_upload_audit_response_from_orm():
     assert resp.error_message is None
 
 
-def test_upload_audit_response_failed_run():
+def test_upload_audit_response_failed_run(now_utc):
     """A failed audit record has processed_at=None and a non-null error_message."""
     obj = SimpleNamespace(
         id=7,
         filename="corporates_A_1.xlsm",
         file_hash="def456",
         status="failed",
-        created_at=_NOW,
+        created_at=now_utc,
         processed_at=None,
         record_count=None,
         error_message="missing field: liquidity",
@@ -205,18 +168,18 @@ def test_upload_stats_defaults_to_zero():
 
 # ── aggregate responses ───────────────────────────────────────────────────────
 
-def test_company_history_response():
-    company = CompanyResponse.model_validate(_company_ns())
-    snapshot = SnapshotSummaryResponse.model_validate(_snapshot_ns())
+def test_company_history_response(make_company_ns, make_snapshot_ns):
+    company = CompanyResponse.model_validate(make_company_ns())
+    snapshot = SnapshotSummaryResponse.model_validate(make_snapshot_ns())
     resp = CompanyHistoryResponse(company=company, snapshots=[snapshot])
     assert len(resp.snapshots) == 1
     assert resp.company.rated_entity == "Company A"
 
 
-def test_compare_response_multiple_companies():
-    c1 = CompanyResponse.model_validate(_company_ns(rated_entity="Company A"))
+def test_compare_response_multiple_companies(make_company_ns):
+    c1 = CompanyResponse.model_validate(make_company_ns(rated_entity="Company A"))
     c2 = CompanyResponse.model_validate(
-        _company_ns(rated_entity="Company B", corporate_sector="Automobiles & Parts")
+        make_company_ns(rated_entity="Company B", corporate_sector="Automobiles & Parts")
     )
     resp = CompareResponse(companies=[c1, c2], snapshots=[])
     assert len(resp.companies) == 2
