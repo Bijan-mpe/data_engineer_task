@@ -52,7 +52,10 @@ Reflect on your AI usage:
 - It used a single database_url string, Its weired, I used seperate env values and a computed field to generate it.
 - Tests was not good, I found several duplication, for example in constants single constant was tested in several test function. after refactoring the number of test reduced to 29 from 46. There was also some no needed test but I didn't change them to save time.
 - I added `duplicated` and `skipped` to the pipeline status constant and its tests.
-- About 
+- It created ERD and put SDC type2 fields inside company table but it must be inside snapshot.
+- It used UUID for upload_audit, that is good but to make it simple to read logs and etc, I suggest to change to int.
+- It didn't checked whole industry weights, it must be 1 and because it is float and is not very acurate in some cases like 0.333 + 0.333 + 0.334 = 1.0000000000000002, i sugest validate if th whole weight is between .99 and 1.01.
+- It puted reporting_currency, accounting_principles, business_year_end, segmentation_criteria fields inside company in sugested erd, inside __init__.py coments. I suggest to move them to the snapshot table.
 **What did you implement entirely on your own?**
 
 **How did AI tools improve your development process?**
