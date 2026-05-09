@@ -87,6 +87,13 @@ requirements-dev.txt
 pyproject.toml        # pytest + ruff config
 ```
 
+## Implementation principles
+
+- **Docstrings everywhere**: All files, classes, methods, and functions require docstrings. Module-level docstrings state the module's single responsibility. Class docstrings describe invariants and usage. Method/function docstrings describe behaviour, parameters, and return values — not implementation.
+- **`__init__.py` as public contract**: Each package's `__init__.py` must declare its public API via explicit re-exports. What is exported is the contract; what is not exported is an implementation detail that may change freely.
+- **Production practices**: Type hints on every function signature. No bare `except:` clauses — always catch a specific type. Fail fast at system boundaries (file input, DB calls, external data). Prefer explicit over implicit.
+- **Explain reasoning**: Before implementing a non-obvious approach, state the rationale and what alternatives were considered. This enables critical evaluation and revision.
+
 ## Implementation steps
 
 Work is done one step at a time. Never move to the next step without explicit user confirmation. Each step must include its own unit tests, and all tests must pass before the step is considered done.
