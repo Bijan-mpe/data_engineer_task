@@ -26,6 +26,7 @@ class Settings(BaseSettings):
 
     # App
     data_dir: Path = Path("./data")
+    quality_report_dir: Path = Path("./reports")
     log_level: str = "INFO"
     environment: Literal["development", "staging", "production"] = "development"
 

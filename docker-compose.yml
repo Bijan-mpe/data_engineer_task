@@ -24,6 +24,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-scope}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-scope_password}
       DATA_DIR: /app/data
+      QUALITY_REPORT_DIR: /app/reports
       SQLALCHEMY_POOL_SIZE: ${SQLALCHEMY_POOL_SIZE:-5}
       SQLALCHEMY_MAX_OVERFLOW: ${SQLALCHEMY_MAX_OVERFLOW:-10}
       SQLALCHEMY_POOL_TIMEOUT: ${SQLALCHEMY_POOL_TIMEOUT:-30}
@@ -33,6 +34,7 @@ services:
       - "${API_PORT:-8000}:8000"
     volumes:
       - ./data:/app/data:ro
+      - ./reports:/app/reports
     depends_on:
       postgres:
         condition: service_healthy

@@ -1,0 +1,10 @@
+{"event":"pipeline_started","data_dir":"/app/data","run_id":"2026-05-10T10:00:00Z"}
+{"event":"file_processing_started","filename":"corporates_A_1.xlsm","run_id":"2026-05-10T10:00:00Z"}
+{"event":"file_processing_completed","filename":"corporates_A_1.xlsm","status":"success","records_written":64,"run_id":"2026-05-10T10:00:00Z"}
+{"event":"file_processing_started","filename":"corporates_A_2.xlsm","run_id":"2026-05-10T10:00:00Z"}
+{"event":"file_processing_completed","filename":"corporates_A_2.xlsm","status":"success","records_written":63,"run_id":"2026-05-10T10:00:00Z"}
+{"event":"file_processing_started","filename":"corporates_B_1.xlsm","run_id":"2026-05-10T10:00:00Z"}
+{"event":"file_processing_completed","filename":"corporates_B_1.xlsm","status":"success","records_written":64,"run_id":"2026-05-10T10:00:00Z"}
+{"event":"file_processing_started","filename":"corporates_B_2.xlsm","run_id":"2026-05-10T10:00:00Z"}
+{"event":"file_processing_completed","filename":"corporates_B_2.xlsm","status":"success","records_written":64,"run_id":"2026-05-10T10:00:00Z"}
+{"event":"pipeline_completed","files_found":4,"succeeded":4,"failed":0,"duplicates":0,"records_written":255,"validation_error_count":0,"run_id":"2026-05-10T10:00:00Z"}

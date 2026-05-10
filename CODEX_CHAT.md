@@ -781,3 +781,112 @@ Checks:
 - `pytest tests/integration -q -p no:cacheprovider` skipped both integration
   tests cleanly without a configured PostgreSQL URL.
 - `docker compose config` succeeded.
+
+## 36. Step 12 Implementation
+
+**User:** Implement step 12
+
+**Codex:** Implemented the integration/E2E and sample-output deliverables:
+
+- Added an end-to-end integration test that copies the real `.xlsm` assignment
+  files into a temporary data directory, runs the pipeline, and verifies the
+  loaded warehouse through the FastAPI app.
+- Added `docs/sample_api_calls.md` with more than 10 API call examples and
+  response snippets.
+- Added `docs/data_quality_report_example.md` with a run summary, per-file
+  quality table, quality checks, and an example failed-file shape.
+- Added `docs/data_pipeline_log_example.jsonl` as a pipeline execution log
+  example.
+- Added unit tests that guard the sample-output deliverables.
+- Added a real-workbook E2E guard so the test fails clearly if the four source
+  files are not present.
+- Updated README deliverables to point to the sample-output files.
+- Corrected the misplaced Step 12 chat marker so this log remains chronological.
+
+Checks:
+
+- `pytest tests/integration/test_e2e_pipeline_api.py -q -p no:cacheprovider`
+  passed.
+- `pytest tests/unit/test_sample_outputs.py -q -p no:cacheprovider` passed.
+- `pytest tests/unit -q -p no:cacheprovider` passed with 351 tests.
+- `pytest tests/integration -q -p no:cacheprovider` passed with 1 test and
+  skipped the 2 PostgreSQL-dependent tests without a configured database URL.
+- `ruff check src tests alembic --no-cache` passed.
+
+## 37. Step 12 Review
+
+**User:** Its the review of the step 12 implementation:
+```
+High: the sample API responses do not match the real workbook data. For example, docs show Company A as Utilities / France, but the extractor reads Personal & Household Goods / Federal Republic of Germany; Company B is Swiss Confederation / CHF, not Germany/USD. The documented totals also look wrong: docs say total_records: 48, but the real four files produce far more child rows because each workbook has 60 metrics. See sample_api_calls.md (line 28) and data_quality_report_example.md (line 17).
+
+
+
+
+Medium: test_e2e_pipeline_api.py is useful, but it is not a production-equivalent E2E test. It uses SQLite, creates schema with Base.metadata.create_all(), and drops an index instead of running Alembic against PostgreSQL. That means it does not verify the real Compose/Postgres/Alembic path. See test_e2e_pipeline_api.py (line 27).
+
+
+
+
+Medium: the “data quality report” is only a static example. The pipeline returns a PipelineBatchReport, but it does not generate/write a report file per run, which is still listed as a deliverable. See pipeline.py (line 550) and data_quality_report_example.md (line 3).
+
+
+
+
+Low: sample-output tests are too shallow. They count curl strings and check a few substrings, but do not validate JSON blocks or compare examples to actual API output. See test_sample_outputs.py (line 8).
+
+
+
+
+Low: Step 12 files are still untracked: docs/data_pipeline_log_example.jsonl, docs/data_quality_report_example.md, docs/sample_api_calls.md, tests/integration/test_e2e_pipeline_api.py, and tests/unit/test_sample_outputs.py.
+```
+what do you think
+
+**Codex:** Verified the real workbook values with the extractor and agreed with
+most of the review:
+
+- The sample-output mismatch is a real high-priority issue. The docs should be
+  regenerated from actual API output or corrected against the fixture data.
+- The SQLite E2E test is useful, but it is not a substitute for the
+  PostgreSQL/Alembic/Compose path. Since PostgreSQL integration tests were
+  intentionally deferred earlier, this should be either documented as a
+  lightweight E2E test or completed with a real Postgres E2E later.
+- The static quality report example satisfies only the sample-output part, not
+  the deliverable of generating a per-run report file. The pipeline should add
+  report serialization if that deliverable is still in scope for Step 12.
+- The sample-output tests are too shallow and should validate JSON blocks and,
+  ideally, compare examples with generated/real API output.
+- The untracked-files point is operationally true and matters before commit,
+  though not a code-quality defect by itself.
+
+## 38. Step 12 Review Fixes
+
+**User:** Except untrack file implement all the fixes
+
+**Codex:** Implemented the Step 12 review fixes while leaving Git tracking state
+alone:
+
+- Corrected sample API responses to match the real workbook fixture data:
+  Company A is `Personal & Household Goods` / `Federal Republic of Germany` /
+  `EUR`, Company B is `Automobiles & Parts` / `Swiss Confederation` / `CHF`,
+  and upload totals now show `255` records.
+- Added generated per-run JSON data-quality reports via
+  `Pipeline.process_directory_report(..., report_dir=...)` and a
+  `write_quality_report()` helper.
+- Added `QUALITY_REPORT_DIR` to settings, `.env.example`, Docker Compose, and
+  README. Compose mounts `./reports` at `/app/reports`.
+- Kept the fast SQLite E2E test, but renamed its intent as a local smoke test
+  and added quality-report assertions.
+- Added a production-equivalent PostgreSQL/Alembic/API E2E test that is skipped
+  unless `POSTGRES_TEST_DATABASE_URL` is configured.
+- Strengthened sample-output tests to parse fenced JSON blocks, parse JSONL log
+  lines, and assert real fixture values and record totals.
+
+Checks:
+
+- `pytest tests/unit/test_sample_outputs.py tests/unit/test_pipeline.py tests/unit/test_config.py tests/unit/test_docker.py tests/integration/test_e2e_pipeline_api.py -q -p no:cacheprovider`
+  passed with 62 tests and 1 skipped PostgreSQL E2E.
+- `pytest tests/unit -q -p no:cacheprovider` passed with 355 tests.
+- `pytest tests/integration -q -p no:cacheprovider` passed with 1 test and
+  skipped 3 PostgreSQL-dependent tests without a configured database URL.
+- `ruff check src tests alembic --no-cache` passed.
+- `docker compose config` succeeded.

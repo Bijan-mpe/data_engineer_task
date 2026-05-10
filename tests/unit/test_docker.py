@@ -38,7 +38,7 @@ def test_dockerfile_exists_and_runs_entrypoint():
 def test_dockerignore_excludes_local_only_artifacts():
     """Docker build context must exclude local and test-only artifacts."""
     dockerignore = (ROOT / ".dockerignore").read_text().splitlines()
-    for path in [".claude", ".codex", ".agents", "tests", "docs", "data"]:
+    for path in [".claude", ".codex", ".agents", "tests", "docs", "data", "reports"]:
         assert path in dockerignore
 
 
@@ -61,8 +61,13 @@ def test_compose_mounts_data_directory_read_only(compose_config):
     """API container must see the source Excel files without mutating them."""
     api = compose_config["services"]["api"]
     data_mount = next(volume for volume in api["volumes"] if volume["target"] == "/app/data")
+    report_mount = next(
+        volume for volume in api["volumes"] if volume["target"] == "/app/reports"
+    )
     assert data_mount["read_only"] is True
     assert api["environment"]["DATA_DIR"] == "/app/data"
+    assert report_mount.get("read_only", False) is False
+    assert api["environment"]["QUALITY_REPORT_DIR"] == "/app/reports"
 
 
 def test_entrypoint_runs_migrations_pipeline_then_api():
@@ -80,6 +85,7 @@ def test_env_example_contains_required_runtime_settings():
     for key in [
         "POSTGRES_PASSWORD=",
         "DATA_DIR=",
+        "QUALITY_REPORT_DIR=",
         "API_PORT=",
         "RUN_PIPELINE_ON_STARTUP=",
         "SQLALCHEMY_POOL_SIZE=",

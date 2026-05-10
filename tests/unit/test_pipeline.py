@@ -12,6 +12,7 @@ transform/load path against a real schema.
 
 from __future__ import annotations
 
+import json
 from datetime import datetime, timezone
 from unittest.mock import patch
 
@@ -548,6 +549,34 @@ class TestProcessDirectory:
         assert report.succeeded == 2
         assert report.failed == 0
         assert report.records_written > 0
+
+    def test_process_directory_report_writes_quality_report(
+        self, pipeline, make_raw_master_dict, tmp_path
+    ):
+        data_dir = tmp_path / "data"
+        report_dir = tmp_path / "reports"
+        data_dir.mkdir()
+        (data_dir / "a.xlsm").write_bytes(b"stub")
+
+        def fake_extract(path):
+            return ExtractedFile(
+                filename=path.name,
+                file_hash=path.name,
+                extracted_at=datetime(2024, 1, 1, tzinfo=timezone.utc),
+                data=RawMasterData(**make_raw_master_dict(rated_entity=path.stem)),
+            )
+
+        with patch("src.pipeline.pipeline.extract_file", side_effect=fake_extract), \
+             patch("src.pipeline.pipeline.validate") as mock_validate:
+            mock_validate.side_effect = lambda extracted: _valid_report(extracted.filename)
+            pipeline.process_directory_report(data_dir, report_dir=report_dir)
+
+        files = list(report_dir.glob("data_quality_report_*.json"))
+        assert len(files) == 1
+        payload = json.loads(files[0].read_text(encoding="utf-8"))
+        assert payload["files_found"] == 1
+        assert payload["succeeded"] == 1
+        assert payload["validation_error_count"] == 0
 
 
 # ── retry handling ────────────────────────────────────────────────────────────

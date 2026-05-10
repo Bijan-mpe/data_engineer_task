@@ -74,6 +74,7 @@ def test_app_settings_defaults():
     s = Settings()
     assert s.log_level == "INFO"
     assert s.data_dir == Path("./data")
+    assert s.quality_report_dir == Path("./reports")
     assert s.environment == "development"
 
 
@@ -87,6 +88,12 @@ def test_settings_reads_data_dir_from_env(monkeypatch):
     monkeypatch.setenv("DATA_DIR", "/tmp/test_data")
     s = Settings()
     assert s.data_dir == Path("/tmp/test_data")
+
+
+def test_settings_reads_quality_report_dir_from_env(monkeypatch):
+    monkeypatch.setenv("QUALITY_REPORT_DIR", "/tmp/quality_reports")
+    s = Settings()
+    assert s.quality_report_dir == Path("/tmp/quality_reports")
 
 
 def test_environment_accepts_valid_values(monkeypatch):

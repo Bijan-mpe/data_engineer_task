@@ -23,6 +23,7 @@ MAX(version_number) + 1 within the same company_id.
 
 from __future__ import annotations
 
+import json
 import sys
 import time
 from datetime import datetime, timezone
@@ -273,14 +274,18 @@ class Pipeline:
         """
         return self.process_directory_report(data_dir).reports
 
-    def process_directory_report(self, data_dir: Path) -> PipelineBatchReport:
-        """Process a directory and return run-level metrics and quality counts."""
+    def process_directory_report(
+        self,
+        data_dir: Path,
+        report_dir: Path | None = None,
+    ) -> PipelineBatchReport:
+        """Process a directory and optionally write a JSON data-quality report."""
         started_at = datetime.now(tz=timezone.utc)
         files = sorted(data_dir.glob(f"*{DATA_FILE_EXTENSION}"))
         if not files:
             logger.warning("No %s files found in %s", DATA_FILE_EXTENSION, data_dir)
             finished_at = datetime.now(tz=timezone.utc)
-            return PipelineBatchReport(
+            report = PipelineBatchReport(
                 started_at=started_at,
                 finished_at=finished_at,
                 duration_seconds=(finished_at - started_at).total_seconds(),
@@ -292,10 +297,13 @@ class Pipeline:
                 records_written=0,
                 validation_error_count=0,
             )
+            if report_dir is not None:
+                self.write_quality_report(report, report_dir)
+            return report
 
         reports = [self.process_file(f) for f in files]
         finished_at = datetime.now(tz=timezone.utc)
-        return PipelineBatchReport(
+        report = PipelineBatchReport(
             started_at=started_at,
             finished_at=finished_at,
             duration_seconds=(finished_at - started_at).total_seconds(),
@@ -309,6 +317,25 @@ class Pipeline:
                 len(r.validation.errors) for r in reports if r.validation is not None
             ),
         )
+        if report_dir is not None:
+            self.write_quality_report(report, report_dir)
+        return report
+
+    def write_quality_report(
+        self,
+        report: PipelineBatchReport,
+        report_dir: Path,
+    ) -> Path:
+        """Write *report* as JSON and return the created file path."""
+        report_dir.mkdir(parents=True, exist_ok=True)
+        timestamp = report.started_at.strftime("%Y%m%dT%H%M%SZ")
+        path = report_dir / f"data_quality_report_{timestamp}.json"
+        path.write_text(
+            json.dumps(report.model_dump(mode="json"), indent=2) + "\n",
+            encoding="utf-8",
+        )
+        logger.info("Data quality report written: %s", path)
+        return path
 
     # ── private helpers ───────────────────────────────────────────────────────
 
@@ -549,7 +576,10 @@ def main() -> None:
 
     with session_scope() as session:
         pipeline = Pipeline(session)
-        batch_report = pipeline.process_directory_report(settings.data_dir)
+        batch_report = pipeline.process_directory_report(
+            settings.data_dir,
+            report_dir=settings.quality_report_dir,
+        )
     logger.info(
         "Pipeline complete — %d succeeded, %d failed, %d duplicate, %d records, %.2fs",
         batch_report.succeeded,
