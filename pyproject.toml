@@ -2,6 +2,11 @@
 pythonpath = ["."]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+filterwarnings = [
+    # openpyxl read-only mode holds a ZipFile reference that Python's GC
+    # occasionally closes before the ZipFile finalizer runs — harmless.
+    "ignore:.*ZipFile.*:pytest.PytestUnraisableExceptionWarning",
+]
 
 [tool.ruff]
 line-length = 100

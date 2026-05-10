@@ -46,6 +46,7 @@ Reflect on your AI usage:
 - defining sqlalchemy orm bestpractices of the last version.
 - Implemented lots of tests that is so time consuming when it is going to be writen by human.(It made wrong tests, but, overal speed by fixing the wrong test its also faster than me at the end than)
 - It found complex bugs main reasons.
+- Creating regex evaluation.
 **What did you need to correct or override?**
 - I need to correct the project structure
 - I need to define step of implementation and base principals of clean code.
