@@ -209,20 +209,30 @@ docs/openapi/swagger.json
 
 ## Implementation Assumptions and Considerations
 
-- At each time, one pipeline instance is expected to run. Some concurrent-run
-  issues were handled, but multiple pipeline instances sharing one `data/`
-  volume should be reviewed more deeply before production use.
+- The expected operating model is one pipeline instance running at a time. Some
+  concurrent-run risks are handled, but running multiple pipeline instances
+  against the same database and shared `data/` volume should be reviewed more
+  deeply before production use.
 - Idempotency is currently based on file content hash. If analysts need to load
-  identical file content as a separate test case, a hash based on
-  filename-plus-content may be a better business key.
-- The API currently uses synchronous SQLAlchemy with FastAPI. That is
-  acceptable for this assignment, but for a production async API we should
-  either make route handlers `sync def` so FastAPI runs them in a threadpool, or
-  migrate the database layer to SQLAlchemy async engine with `AsyncSession`.
+  identical file content as a separate business event or test case, a key based
+  on filename plus file content may be more appropriate.
+- The API currently uses synchronous SQLAlchemy with FastAPI. This is
+  acceptable for the assignment, but a production async API should either use
+  synchronous route handlers so FastAPI can run blocking database work in a
+  threadpool, or migrate the database layer to SQLAlchemy's async engine with
+  `AsyncSession`.
 
 ## Future Improvements
 
-- Expand the data-quality report beyond current validation counts. The current
-  report covers run totals and per-file validation errors; extraction failures,
-  load failures, audit-write failures, warning counts, validity rates, and
-  rule-level completeness metrics can be expanded further.
+- Expand the data-quality report beyond the current run totals and per-file
+  validation errors. Useful additions include extraction-failure categories,
+  load-failure categories, audit-write failures, warning counts, validity
+  rates, and rule-level completeness metrics.
+- Add a production monitoring stack, such as Prometheus and Grafana, for
+  metrics, dashboards, and alerting.
+- Add a full Docker Compose E2E acceptance test that brings up PostgreSQL and the
+  API, runs Alembic migrations, loads the real workbooks, and queries the live
+  API.
+- Add pagination metadata envelopes for list endpoints if client requirements
+  grow. Current list endpoints support `limit` and `offset`, but return plain
+  arrays without total counts or next/previous metadata.
