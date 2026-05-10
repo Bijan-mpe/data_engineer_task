@@ -1003,3 +1003,36 @@ Checks:
 - `ruff check src tests alembic --no-cache` passed.
 - Confirmed no remaining printf-style logger calls, `print()` calls, or
   `fileConfig` imports under `src` and `alembic`.
+
+## 43. AI Usage Detailed Description
+
+**User:** Im going to fill AI_Agent.
+fix grammer issues of the following text  and add it under `## 3. Detailed Description`
+```
+I started working on the project on May 9th 2pm. I used AI in all the parts of the project including implementation and code review.
+I reviews AI outputs to make sure everything is good.
+### Using Approach
+ I used tow different chat, One with write permission to generae files, code and docs, another with read permission to review the code. To decrease mistakes statiscly, I use a cycle of code and review. in this way I could be sure that statistically issues will decrease. I continue the following cycle until find desire code quality,
+Generate Code -> Review and report -> Fix issues based on report -> review generated code and report -> fix issues ...
+I review code and reviews by myself to make sure I will not wast time for issues I already know about them.
+
+For Claude I started with /init skill, it generates a CLAUDE.md file in the repo root. then I edit it to improve the project structure and define clean code and principals. I didn't create custom SKILLs because I didn't have enough time, but it totally worth to create them it is going to be used in everyday tasks.
+
+For Codex I copy the CLAUDE.md content to Agents.md to make sure the AI have enough context.
+```
+
+**Codex:** Added the corrected text under `## 3. Detailed Description` in
+`AI_USAGE.md`, preserving the meaning while fixing grammar and readability.
+
+## 44. AI Usage Grammar Review
+
+**User:** check the AI_USAGE grammers and sentences structure
+
+**Codex:** Reviewed and cleaned up `AI_USAGE.md` grammar and sentence
+structure:
+
+- Fixed spelling, tense, capitalization, and unclear phrasing.
+- Reworked long run-on sentences into shorter paragraphs.
+- Made the AI tools section more readable and consistent.
+- Cleaned up the self-assessment while preserving the user's meaning.
+- Added `docs/OVERVIEWER_CHAT.md` to the chat-log location list.
