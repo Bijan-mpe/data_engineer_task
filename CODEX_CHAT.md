@@ -508,76 +508,21 @@ Checks:
 - `pytest tests/integration -q -p no:cacheprovider` skipped both integration
   tests cleanly without a configured PostgreSQL URL.
 
-## 27. SQLAlchemy Engine Pool Settings Discussion
-
-**User:** I think we should define pool_size, max_overflow, pool_timeout, pool_recycle in sqlalchemy create_engine.  and the values of sqlalchemy engin configuration also come from settings and envs. What do you think?
-
-**Codex:** Agreed that production-style SQLAlchemy engine pool settings should
-come from `Settings`/environment variables and recommended adding
-`sqlalchemy_pool_size`, `sqlalchemy_max_overflow`, `sqlalchemy_pool_timeout`,
-and `sqlalchemy_pool_recycle` before Docker/runtime configuration.
-
-## 28. SQLAlchemy Pool Settings Implementation
-
-**User:** Ok Implement it.
-Also add the following note under "# Implementation assumption and consideration":
-another thing that must be considered is that our current implementation uses syncsqlalchemy with fastapi, that is totally acceptable now, but for a production async api, we should either make the route handlers sync def, allowing fastapi to run them in a threadpool, or migrate the db layer to SQLAlchemy async engine with AsyncSession. 
-
-**Codex:** Added SQLAlchemy pool settings to `Settings`:
-
-- `sqlalchemy_pool_size`
-- `sqlalchemy_max_overflow`
-- `sqlalchemy_pool_timeout`
-- `sqlalchemy_pool_recycle`
-
-Then wired those values into `create_engine()` in `src/core/db.py`. Added unit
-tests for default/env settings and engine pool configuration. Added the user's
-sync-SQLAlchemy/FastAPI production consideration under the existing
-`# Implementation assumption` section in `AI_USAGE.md`.
-
-Checks:
-
-- `pytest tests/unit/test_config.py tests/unit/test_db.py -q -p no:cacheprovider`
-  passed with 20 tests.
-- `pytest tests/unit -q -p no:cacheprovider` passed with 337 tests.
-- `ruff check src tests alembic --no-cache` passed.
-
-## 26. Step 10 Implementation
-
-**User:** implement step 10.
-
-**Codex:** Implemented Step 10 FastAPI routes:
-
-- Added `src/api/main.py` with `create_app()` and default `app`.
-- Added `src/api/dependencies.py` for database/session and settings
-  dependency injection.
-- Added v1 routers:
-  - `src/api/routers/v1/companies.py`
-  - `src/api/routers/v1/snapshots.py`
-  - `src/api/routers/v1/uploads.py`
-- Registered all v1 routers under `/v1`.
-- Implemented company list/detail/versions/history/compare endpoints.
-- Implemented snapshot list/latest/detail endpoints.
-- Implemented upload list/details/file/stats endpoints.
-- Added API unit tests in `tests/unit/test_api.py`.
-
-During testing, `fastapi.testclient.TestClient` hung in this environment, so
-Codex switched API tests to `httpx.AsyncClient` with `ASGITransport`. The file
-download endpoint was implemented as a binary `Response` with a
-`Content-Disposition` attachment header instead of `FileResponse`, because
-`FileResponse` also took the hanging threadpool path in this sandbox.
-
-Checks:
-
-- `pytest tests/unit/test_api.py -q -p no:cacheprovider` passed with 18 tests.
-- `pytest tests/unit -q -p no:cacheprovider` passed with 334 tests.
-- `ruff check src tests alembic --no-cache` passed.
-- `pytest tests/integration -q -p no:cacheprovider` skipped both integration
-  tests cleanly without a configured PostgreSQL URL.
-
 ## 23. Step 9 Hardening Review
 
 **User:** Check review report:
+```
+Medium: src/repository/__init__.py now imports company_repository, snapshot_repository, and upload_repository, but those files are still untracked. If only tracked files are committed, import src.repository will break in a clean checkout. Add the new repository modules and repository tests when this step is finalized. See init.py (line 14).
+
+
+
+
+Low/Design: SnapshotRepository.get_as_of() implements “any snapshot valid during this calendar date” semantics by checking valid_from <= end_of_day and valid_to > start_of_day. That is probably okay because the API spec says as_of_date, but it is not a precise instant-in-time lookup. If later the API accepts a timestamp, this should become an exact valid_from <= as_of < valid_to query. See snapshot_repository.py (line 84).
+
+
+
+
+Low: repository pagination accepts raw limit/offset values without guards. The API layer should enforce limit >= 1, max limit, and offset >= 0; otherwise invalid query params may produce database-specific behavior. See company_repository.py (line 33), snapshot_repository.py (line 21), and upload_repository.py (line 23).
 ```
 
 **Codex:** Reviewed the report and concluded:
@@ -616,15 +561,140 @@ Checks:
 - `ruff check src tests alembic --no-cache` passed.
 - `pytest tests/integration -q -p no:cacheprovider` skipped both integration
   tests cleanly without a configured PostgreSQL URL.
-Medium: src/repository/__init__.py now imports company_repository, snapshot_repository, and upload_repository, but those files are still untracked. If only tracked files are committed, import src.repository will break in a clean checkout. Add the new repository modules and repository tests when this step is finalized. See init.py (line 14).
 
+## 26. Step 10 Implementation
 
+**User:** implement step 10.
 
+**Codex:** Implemented Step 10 FastAPI routes:
 
-Low/Design: SnapshotRepository.get_as_of() implements “any snapshot valid during this calendar date” semantics by checking valid_from <= end_of_day and valid_to > start_of_day. That is probably okay because the API spec says as_of_date, but it is not a precise instant-in-time lookup. If later the API accepts a timestamp, this should become an exact valid_from <= as_of < valid_to query. See snapshot_repository.py (line 84).
+- Added `src/api/main.py` with `create_app()` and default `app`.
+- Added `src/api/dependencies.py` for database/session and settings
+  dependency injection.
+- Added v1 routers:
+  - `src/api/routers/v1/companies.py`
+  - `src/api/routers/v1/snapshots.py`
+  - `src/api/routers/v1/uploads.py`
+- Registered all v1 routers under `/v1`.
+- Implemented company list/detail/versions/history/compare endpoints.
+- Implemented snapshot list/latest/detail endpoints.
+- Implemented upload list/details/file/stats endpoints.
+- Added API unit tests in `tests/unit/test_api.py`.
 
+During testing, `fastapi.testclient.TestClient` hung in this environment, so
+Codex switched API tests to `httpx.AsyncClient` with `ASGITransport`. The file
+download endpoint was implemented as a binary `Response` with a
+`Content-Disposition` attachment header instead of `FileResponse`, because
+`FileResponse` also took the hanging threadpool path in this sandbox.
 
+Checks:
 
+- `pytest tests/unit/test_api.py -q -p no:cacheprovider` passed with 18 tests.
+- `pytest tests/unit -q -p no:cacheprovider` passed with 334 tests.
+- `ruff check src tests alembic --no-cache` passed.
+- `pytest tests/integration -q -p no:cacheprovider` skipped both integration
+  tests cleanly without a configured PostgreSQL URL.
 
-Low: repository pagination accepts raw limit/offset values without guards. The API layer should enforce limit >= 1, max limit, and offset >= 0; otherwise invalid query params may produce database-specific behavior. See company_repository.py (line 33), snapshot_repository.py (line 21), and upload_repository.py (line 23).
+## 27. SQLAlchemy Engine Pool Settings Discussion
+
+**User:** I think we should define pool_size, max_overflow, pool_timeout, pool_recycle in sqlalchemy create_engine.  and the values of sqlalchemy engin configuration also come from settings and envs. What do you think?
+
+**Codex:** Agreed that production-style SQLAlchemy engine pool settings should
+come from `Settings`/environment variables and recommended adding
+`sqlalchemy_pool_size`, `sqlalchemy_max_overflow`, `sqlalchemy_pool_timeout`,
+and `sqlalchemy_pool_recycle` before Docker/runtime configuration.
+
+## 28. SQLAlchemy Pool Settings Implementation
+
+**User:** Ok Implement it.
+Also add the following note under "# Implementation assumption and consideration":
+another thing that must be considered is that our current implementation uses syncsqlalchemy with fastapi, that is totally acceptable now, but for a production async api, we should either make the route handlers sync def, allowing fastapi to run them in a threadpool, or migrate the db layer to SQLAlchemy async engine with AsyncSession. 
+
+**Codex:** Added SQLAlchemy pool settings to `Settings`:
+
+- `sqlalchemy_pool_size`
+- `sqlalchemy_max_overflow`
+- `sqlalchemy_pool_timeout`
+- `sqlalchemy_pool_recycle`
+
+Then wired those values into `create_engine()` in `src/core/db.py`. Added unit
+tests for default/env settings and engine pool configuration. Added the user's
+sync-SQLAlchemy/FastAPI production consideration under the existing
+`# Implementation assumption` section in `AI_USAGE.md`.
+
+Checks:
+
+- `pytest tests/unit/test_config.py tests/unit/test_db.py -q -p no:cacheprovider`
+  passed with 20 tests.
+- `pytest tests/unit -q -p no:cacheprovider` passed with 337 tests.
+- `ruff check src tests alembic --no-cache` passed.
+
+## 29. FastAPI Implementation Review
+
+**User:** Last FastAPI implementation review:
 ```
+Medium: /uploads/{upload_id}/file loads the whole workbook into memory with path.read_bytes(). For a file download endpoint, FileResponse is safer and more production-like: streaming behavior, content length/headers handled better, and less memory pressure. See uploads.py (line 50).
+
+
+
+
+Low/Requirement alignment: README lists endpoints as /companies, /snapshots, /uploads, but implementation exposes them under /v1/.... Versioned routing is reasonable, but the docs/sample calls need to match, or the app should expose compatibility aliases. See v1/init.py (line 7).
+
+
+
+
+Low: no health endpoint yet. README’s Docker section mentions an API health check, so Step 10 or Step 11 should add something like /health for Compose/container readiness.
+```
+what do you think?
+
+**Codex:** Agreed that `FileResponse` is more production-like than
+`read_bytes()`, that `/v1/...` routing should be documented consistently rather
+than silently diverging from README examples, and that `/health` should be added
+for container readiness.
+
+## 30. FastAPI Review Fixes
+
+**User:** Implement all of them.
+regarding /health endpoint it also is good to create a health_check in db that check db connection health by a simple "select 1" query and use it in the health/ endpoint.
+what do you think
+
+**Codex:** Implemented the FastAPI review fixes:
+
+- Added `health_check()` in `src/core/db.py`, using a simple `SELECT 1`.
+- Added `check_database_health()` dependency in `src/api/dependencies.py`.
+- Added root `/health` endpoint in `src/api/main.py`; it returns HTTP 200
+  with `{"status": "ok", "database": "ok"}` when the DB check passes and HTTP
+  503 with `{"status": "unhealthy", "database": "unreachable"}` when it fails.
+- Switched `/v1/uploads/{upload_id}/file` back to `FileResponse`.
+- Updated README endpoint references to use `/v1/...` and added `/health`.
+- Updated tests for health success/failure and DB health check behavior. In API
+  tests, Codex monkeypatched the returned `FileResponse` constructor for the
+  download-route test only, because Starlette's file-response threadpool path
+  hangs in this sandbox; production code now uses `FileResponse`.
+
+Checks:
+
+- `pytest tests/unit/test_api.py tests/unit/test_db.py -q -p no:cacheprovider`
+  passed with 30 tests.
+- `pytest tests/unit -q -p no:cacheprovider` passed with 341 tests.
+- `ruff check src tests alembic --no-cache` passed.
+- `pytest tests/integration -q -p no:cacheprovider` skipped both integration
+  tests cleanly without a configured PostgreSQL URL.
+
+## 31. CODEX_CHAT Ordering Fix
+
+**User:** I realized you make the chat orders wrong in CODEX_CHAT and inserts new chats in the midle of the other chats. review the file  and make it correct.
+
+**Codex:** Reviewed `CODEX_CHAT.md` and fixed the chronological order. The
+tail sections now run in sequence from Step 9 hardening review through Step 10,
+SQLAlchemy pool settings, FastAPI review fixes, and this ordering correction.
+The Step 9 hardening review text was moved back under its own section instead
+of being stranded after the pagination section.
+
+## 32. README Endpoint Requirements Correction
+
+**User:** You changed endpoints in requirements section of README.md. keep them as they was and add a Sugested Endpoint section under it and put the new endpoint design like a list there.
+
+**Codex:** Restored the README requirements endpoint list to the original
+unversioned paths and added a separate `Suggested Endpoints` list containing
+the implemented `/v1/...` routes plus `/health`.

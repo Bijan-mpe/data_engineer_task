@@ -65,7 +65,9 @@ Reflect on your AI usage:
 - In step7, validation implementation, some validations are places in pydantic models and another some in validator, it make two problem, one is that there are tow place to look for future development, second is inconsistent behavior. Pydantic raises on first error then validator collects all errors. If weight sum is in Pydantic and risk_score is in the validator, the pipeline behaves differently depending on which rule fails. 
 I think all the validations must be implemented inside validator. 
 - Logging is not based on the principal I defined, I will fix it at the end if I have time.
-- 
+- The requirement endpoint definition iside README.md file did'nt define API versioning and the AI also considered everything based on the requirements,but to follwo best practices I define it and all the endpoints at thecurrent implementation is in /v1/ route. I also add /health endpoint to the requirements.
+- I asked ai to put every single chat messages inside a CODEX_CHAT for codex, but after step 10 I realized it put the new messages in midle of the file and asked it to fix and it did.
+- I also asked AI to create a health_check function for checking database connection, it will be used inside /health endpoint also.
 **What did you implement entirely on your own?**
 
 **How did AI tools improve your development process?**
@@ -83,7 +85,7 @@ Based on your experience, what advice would you give to others using AI tools fo
 Thank you for your transparency!
 
 <!-- these section is not about ai agents -->
-# Implementation assumption
+# Implementation assumption and consideration
 - at each time one instance of the pipeline is runnign. I handled some concurrent runing issues but I have not deeply check if it is safe to run several instance of a pipeline at same time with shared data/ volume.
 - I assume that idempotency can be based on file content, but there can be other case that data analyst want to test same content as a test case, in the case hash of filename+filecontent is better.
 - another thing that must be considered is that our current implementation uses syncsqlalchemy with fastapi, that is totally acceptable now, but for a production async api, we should either make the route handlers sync def, allowing fastapi to run them in a threadpool, or migrate the db layer to SQLAlchemy async engine with AsyncSession.
