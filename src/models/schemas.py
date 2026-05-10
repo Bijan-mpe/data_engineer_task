@@ -15,7 +15,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field
 
 from src.core.constants import (
     AccountingPrinciples,
@@ -38,7 +38,7 @@ class IndustrySegment(BaseModel):
     position: int = Field(ge=1, description="1-indexed column position in the MASTER sheet.")
     industry_name: str
     risk_score: str  # RatingGrade value; kept str so extractor passes raw input unchanged
-    weight: float = Field(gt=0, le=1)
+    weight: float
 
 
 class ScopeMetric(BaseModel):
@@ -50,7 +50,7 @@ class ScopeMetric(BaseModel):
     """
 
     metric_name: str
-    year: int = Field(ge=1900, le=2100)
+    year: int
     is_estimate: bool = False
     value: float | None = None
 
@@ -65,16 +65,17 @@ class RawMasterData(BaseModel):
 
     str_strip_whitespace strips leading/trailing whitespace before min_length
     is evaluated, so "   " is rejected the same as "".
-    Lists with min_length=1 enforce that the extractor found at least one
-    entry; the model_validator enforces that segment weights sum to 1.0.
+    List fields and numeric range constraints are intentionally absent here;
+    they are enforced by the validator stage so all violations are collected
+    into a single ValidationReport rather than raising on the first failure.
     """
 
     model_config = ConfigDict(str_strip_whitespace=True)
 
     rated_entity: str = Field(min_length=1)
     corporate_sector: str = Field(min_length=1)
-    rating_methodologies: list[str] = Field(min_length=1)
-    industry_segments: list[IndustrySegment] = Field(min_length=1)
+    rating_methodologies: list[str]
+    industry_segments: list[IndustrySegment]
     segmentation_criteria: str | None = None
     reporting_currency: str = Field(min_length=1)
     country_of_origin: str = Field(min_length=1)
@@ -95,19 +96,7 @@ class RawMasterData(BaseModel):
     interest_cover: RatingGrade
     cash_flow_cover: RatingGrade
     liquidity: LiquidityScore
-    scope_metrics: list[ScopeMetric] = Field(min_length=1)
-
-    @model_validator(mode="after")
-    def check_industry_weights_sum_to_one(self) -> "RawMasterData":
-        """Segment weights must sum to 1.0 (±0.01 tolerance for float rounding)."""
-        if not self.industry_segments:
-            return self
-        total = sum(seg.weight for seg in self.industry_segments)
-        if not (0.99 <= total <= 1.01):
-            raise ValueError(
-                f"industry_segments weights must sum to 1.0 (got {total:.6f})"
-            )
-        return self
+    scope_metrics: list[ScopeMetric]
 
 
 class ExtractedFile(BaseModel):

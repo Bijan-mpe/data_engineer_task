@@ -61,6 +61,9 @@ Reflect on your AI usage:
 - It puted reporting_currency, accounting_principles, business_year_end, segmentation_criteria fields inside company in sugested erd, inside __init__.py coments. I suggest to move them to the snapshot table.
 - it forgot to add version_number to snapshot records. 
 - I changed the pattern of migrations file names. 
+- In step7, validation implementation, some validations are places in pydantic models and another some in validator, it make two problem, one is that there are tow place to look for future development, second is inconsistent behavior. Pydantic raises on first error then validator collects all errors. If weight sum is in Pydantic and risk_score is in the validator, the pipeline behaves differently depending on which rule fails. 
+I think all the validations must be implemented inside validator. 
+- 
 **What did you implement entirely on your own?**
 
 **How did AI tools improve your development process?**

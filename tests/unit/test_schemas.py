@@ -1,4 +1,10 @@
-"""Unit tests for src.models.schemas — pipeline DTO validation constraints."""
+"""Unit tests for src.models.schemas — structural well-formedness constraints.
+
+Only Pydantic-level invariants are tested here: correct types, enum membership,
+required vs optional fields, and non-empty string constraints.  Business-rule
+checks (weight range, weight sum, year range, non-empty lists) live in
+test_validator.py where they are exercised via the validator stage.
+"""
 
 import pytest
 from pydantic import ValidationError
@@ -20,16 +26,6 @@ def test_industry_segment_valid_single():
     seg = IndustrySegment(position=1, industry_name="Consumer Products", risk_score="A", weight=1.0)
     assert seg.position == 1
     assert seg.weight == 1.0
-
-
-def test_industry_segment_weight_zero_rejected():
-    with pytest.raises(ValidationError):
-        IndustrySegment(position=1, industry_name="X", risk_score="A", weight=0.0)
-
-
-def test_industry_segment_weight_above_one_rejected():
-    with pytest.raises(ValidationError):
-        IndustrySegment(position=1, industry_name="X", risk_score="A", weight=1.001)
 
 
 def test_industry_segment_position_zero_rejected():
@@ -54,13 +50,6 @@ def test_scope_metric_none_value_allowed():
     assert m.is_estimate is False
 
 
-def test_scope_metric_year_bounds_rejected():
-    with pytest.raises(ValidationError):
-        ScopeMetric(metric_name="X", year=1899)
-    with pytest.raises(ValidationError):
-        ScopeMetric(metric_name="X", year=2101)
-
-
 # ── RawMasterData — string field constraints ──────────────────────────────────
 
 @pytest.mark.parametrize(
@@ -78,60 +67,6 @@ def test_raw_master_data_whitespace_only_rejected(field: str, make_raw_master_di
     """str_strip_whitespace strips before min_length check — "   " must be rejected."""
     with pytest.raises(ValidationError):
         RawMasterData(**make_raw_master_dict(**{field: "   "}))
-
-
-# ── RawMasterData — weight sum validator ──────────────────────────────────────
-
-def test_raw_master_data_weight_sum_valid_multi_segment(make_raw_master_dict):
-    data = RawMasterData(
-        **make_raw_master_dict(
-            industry_segments=[
-                {"position": 1, "industry_name": "Seg A", "risk_score": "BBB", "weight": 0.15},
-                {"position": 2, "industry_name": "Seg B", "risk_score": "BB", "weight": 0.85},
-            ]
-        )
-    )
-    assert len(data.industry_segments) == 2
-
-
-def test_raw_master_data_weight_sum_float_rounding_tolerated(make_raw_master_dict):
-    """0.333 + 0.333 + 0.334 = 1.0000000000000002 — must not be rejected."""
-    data = RawMasterData(
-        **make_raw_master_dict(
-            industry_segments=[
-                {"position": 1, "industry_name": "Seg A", "risk_score": "BBB", "weight": 0.333},
-                {"position": 2, "industry_name": "Seg B", "risk_score": "BB", "weight": 0.333},
-                {"position": 3, "industry_name": "Seg C", "risk_score": "B", "weight": 0.334},
-            ]
-        )
-    )
-    assert len(data.industry_segments) == 3
-
-
-def test_raw_master_data_weight_sum_invalid_rejected(make_raw_master_dict):
-    with pytest.raises(ValidationError, match=r"weights must sum to 1\.0"):
-        RawMasterData(
-            **make_raw_master_dict(
-                industry_segments=[
-                    {"position": 1, "industry_name": "Seg A", "risk_score": "BBB", "weight": 0.3},
-                    {"position": 2, "industry_name": "Seg B", "risk_score": "BB", "weight": 0.3},
-                ]
-            )
-        )
-
-
-def test_raw_master_data_weight_sum_error_includes_actual_value(make_raw_master_dict):
-    """Error message must include the actual sum for debugging."""
-    with pytest.raises(ValidationError) as exc_info:
-        RawMasterData(
-            **make_raw_master_dict(
-                industry_segments=[
-                    {"position": 1, "industry_name": "Seg A", "risk_score": "BBB", "weight": 0.4},
-                    {"position": 2, "industry_name": "Seg B", "risk_score": "BB", "weight": 0.4},
-                ]
-            )
-        )
-    assert "0.800000" in str(exc_info.value)
 
 
 # ── RawMasterData ─────────────────────────────────────────────────────────────
@@ -169,21 +104,6 @@ def test_raw_master_data_optional_fields_absent(raw_master_data):
     assert raw_master_data.segmentation_criteria is None
     assert raw_master_data.sector_specific_factor_1 is None
     assert raw_master_data.sector_specific_factor_2 is None
-
-
-def test_raw_master_data_empty_methodologies_rejected(make_raw_master_dict):
-    with pytest.raises(ValidationError):
-        RawMasterData(**make_raw_master_dict(rating_methodologies=[]))
-
-
-def test_raw_master_data_empty_segments_rejected(make_raw_master_dict):
-    with pytest.raises(ValidationError):
-        RawMasterData(**make_raw_master_dict(industry_segments=[]))
-
-
-def test_raw_master_data_empty_metrics_rejected(make_raw_master_dict):
-    with pytest.raises(ValidationError):
-        RawMasterData(**make_raw_master_dict(scope_metrics=[]))
 
 
 # ── FieldError / ValidationReport ────────────────────────────────────────────

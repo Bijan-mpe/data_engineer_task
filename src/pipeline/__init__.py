@@ -10,8 +10,10 @@ Public API
 ----------
   extract_file    — parse a .xlsm file into an ExtractedFile DTO
   ExtractionError — raised when a file cannot be parsed
+  validate        — run business-rule checks and return a ValidationReport
 """
 
 from src.pipeline.extractor import ExtractionError, extract_file
+from src.pipeline.validator import validate
 
-__all__ = ["extract_file", "ExtractionError"]
+__all__ = ["extract_file", "ExtractionError", "validate"]
