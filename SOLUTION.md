@@ -31,7 +31,7 @@ docs/
     data_quality_report_example.md
     data_pipeline_log_example.jsonl
   openapi/
-    swagger.json                  # generated OpenAPI artifact, added later
+    swagger.json                  # generated OpenAPI artifact
 ```
 
 ## Architecture
@@ -195,8 +195,13 @@ FastAPI serves interactive Swagger UI at:
 ```text
 http://localhost:8000/docs
 ```
+FastAPI serves Redoc UI at:
 
-The generated OpenAPI artifact will be committed later as:
+```text
+http://localhost:8000/redoc
+```
+
+The generated OpenAPI artifact:
 
 ```text
 docs/openapi/swagger.json
