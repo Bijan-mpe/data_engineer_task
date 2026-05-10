@@ -80,6 +80,11 @@ def test_company_snapshot_sector_factors_nullable():
     assert CompanySnapshot.__table__.c["sector_specific_factor_2"].nullable
 
 
+def test_company_snapshot_does_not_duplicate_company_metadata_columns():
+    assert "corporate_sector" not in CompanySnapshot.__table__.c
+    assert "country_of_origin" not in CompanySnapshot.__table__.c
+
+
 def test_scope_metric_value_nullable():
     assert ScopeMetric.__table__.c["value"].nullable
 
@@ -108,6 +113,16 @@ def test_company_snapshot_company_version_unique_constraint():
         if isinstance(c, UniqueConstraint)
     }
     assert frozenset({"company_id", "version_number"}) in constraint_col_sets
+
+
+def test_company_identity_unique_constraint():
+    """Company identity is rated entity plus country, not rated entity alone."""
+    constraint_col_sets = {
+        frozenset(col.name for col in c.columns)
+        for c in Company.__table__.constraints
+        if isinstance(c, UniqueConstraint)
+    }
+    assert frozenset({"rated_entity", "country_of_origin"}) in constraint_col_sets
 
 
 # ── audit timestamps ──────────────────────────────────────────────────────────
@@ -176,6 +191,16 @@ def test_upload_audit_file_hash_indexed():
     assert UploadAudit.__table__.c["file_hash"].index
 
 
+def test_upload_audit_success_file_hash_partial_unique_index():
+    index = next(
+        idx
+        for idx in UploadAudit.__table__.indexes
+        if idx.name == "ix_upload_audit_success_file_hash"
+    )
+    assert index.unique is True
+    assert str(index.dialect_options["postgresql"]["where"]) == "status = 'success'"
+
+
 def test_company_snapshot_is_current_indexed():
     assert CompanySnapshot.__table__.c["is_current"].index
 
@@ -232,24 +257,24 @@ def test_company_snapshot_repr_includes_version():
 # ── CompanySnapshot identity properties ──────────────────────────────────────
 
 def test_company_snapshot_has_identity_properties():
-    """rated_entity/corporate_sector/country_of_origin must be Python properties."""
+    """Snapshot summary fields are delegated to company instead of duplicated."""
     assert isinstance(CompanySnapshot.rated_entity, property)
     assert isinstance(CompanySnapshot.corporate_sector, property)
     assert isinstance(CompanySnapshot.country_of_origin, property)
 
 
-def test_company_snapshot_identity_properties_delegate_to_company():
+def test_company_snapshot_rated_entity_property_delegates_to_company():
     """Call fget directly with a namespace to avoid SQLAlchemy instrumentation setup."""
     from types import SimpleNamespace
     company = SimpleNamespace(
         rated_entity="Acme Corp",
-        corporate_sector="Technology",
-        country_of_origin="Germany",
+        corporate_sector="Utilities",
+        country_of_origin="France",
     )
     snapshot = SimpleNamespace(company=company)
     assert CompanySnapshot.rated_entity.fget(snapshot) == "Acme Corp"
-    assert CompanySnapshot.corporate_sector.fget(snapshot) == "Technology"
-    assert CompanySnapshot.country_of_origin.fget(snapshot) == "Germany"
+    assert CompanySnapshot.corporate_sector.fget(snapshot) == "Utilities"
+    assert CompanySnapshot.country_of_origin.fget(snapshot) == "France"
 
 
 # ── child table unique constraints ────────────────────────────────────────────

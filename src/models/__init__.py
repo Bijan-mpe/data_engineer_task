@@ -39,6 +39,8 @@ from src.models.schemas import (
     ExtractedFile,
     FieldError,
     IndustrySegment,
+    LoadPlan,
+    PipelineBatchReport,
     PipelineRunReport,
     RawMasterData,
     ScopeMetric,
@@ -58,7 +60,9 @@ __all__ = [
     "ExtractedFile",
     "FieldError",
     "ValidationReport",
+    "LoadPlan",
     "PipelineRunReport",
+    "PipelineBatchReport",
     # responses
     "IndustrySegmentResponse",
     "RatingMethodologyResponse",

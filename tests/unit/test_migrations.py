@@ -104,14 +104,38 @@ def test_initial_migration_creates_partial_unique_index():
     assert "is_current = true" in source
 
 
+def test_initial_migration_creates_success_file_hash_unique_index():
+    """Successful uploads must be unique by file hash for concurrent idempotency."""
+    source = inspect.getsource(_base_revision().module.upgrade)
+    assert "ix_upload_audit_success_file_hash" in source
+    assert "status = 'success'" in source
+
+
 def test_initial_migration_drops_partial_unique_index_in_downgrade():
     source = inspect.getsource(_base_revision().module.downgrade)
     assert "ix_company_snapshot_one_current_per_company" in source
+    assert "ix_upload_audit_success_file_hash" in source
 
 
 def test_initial_migration_includes_version_number_column():
     source = inspect.getsource(_base_revision().module.upgrade)
     assert "version_number" in source
+
+
+def test_initial_migration_includes_company_identity_constraint():
+    source = inspect.getsource(_base_revision().module.upgrade)
+    assert "uq_company_identity" in source
+    assert "rated_entity" in source
+    assert "country_of_origin" in source
+
+
+def test_initial_migration_keeps_company_metadata_out_of_snapshot():
+    source = inspect.getsource(_base_revision().module.upgrade)
+    snapshot_table_start = source.index('op.create_table(\n        "company_snapshot"')
+    industry_table_start = source.index('op.create_table(\n        "industry_segment"')
+    snapshot_source = source[snapshot_table_start:industry_table_start]
+    assert "corporate_sector" not in snapshot_source
+    assert "country_of_origin" not in snapshot_source
 
 
 def test_initial_migration_includes_audit_timestamps():

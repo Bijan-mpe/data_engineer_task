@@ -14,6 +14,8 @@ from src.models.schemas import (
     ExtractedFile,
     FieldError,
     IndustrySegment,
+    LoadPlan,
+    PipelineBatchReport,
     PipelineRunReport,
     RawMasterData,
     ScopeMetric,
@@ -151,6 +153,42 @@ def test_pipeline_run_report_failed_defaults():
     )
     assert report.records_written == 0
     assert report.company_name is None
+
+
+# ── LoadPlan / PipelineBatchReport ────────────────────────────────────────────
+
+def test_load_plan_accepts_transformed_payload(raw_master_data, now_utc):
+    plan = LoadPlan(
+        filename="corporates_A_1.xlsm",
+        file_hash="a" * 64,
+        extracted_at=now_utc,
+        **raw_master_data.model_dump(),
+    )
+    assert plan.rated_entity == "Company A"
+    assert plan.country_of_origin == raw_master_data.country_of_origin
+
+
+def test_pipeline_batch_report_stores_totals(now_utc):
+    report = PipelineBatchReport(
+        started_at=now_utc,
+        finished_at=now_utc,
+        duration_seconds=0.0,
+        files_found=1,
+        reports=[
+            PipelineRunReport(
+                filename="corporates_A_1.xlsm",
+                status=PipelineStatus.SUCCESS,
+                records_written=4,
+            )
+        ],
+        succeeded=1,
+        failed=0,
+        duplicates=0,
+        records_written=4,
+        validation_error_count=0,
+    )
+    assert report.files_found == 1
+    assert report.records_written == 4
 
 
 # ── ExtractedFile ─────────────────────────────────────────────────────────────

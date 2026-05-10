@@ -24,7 +24,11 @@ target_metadata = Base.metadata
 
 
 def _get_url() -> str:
-    """Return the database URL from the module-level settings singleton."""
+    """Return the configured database URL, preferring explicit Alembic overrides."""
+    configured_url = config.get_main_option("sqlalchemy.url")
+    if configured_url and configured_url != "postgresql://localhost/scop":
+        return configured_url
+
     from src.core.config import settings
 
     return settings.database_url

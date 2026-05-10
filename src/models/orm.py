@@ -83,6 +83,15 @@ class UploadAudit(Base):
     """
 
     __tablename__ = "upload_audit"
+    __table_args__ = (
+        Index(
+            "ix_upload_audit_success_file_hash",
+            "file_hash",
+            unique=True,
+            postgresql_where=text("status = 'success'"),
+            sqlite_where=text("status = 'success'"),
+        ),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     filename: Mapped[str] = mapped_column(Text, nullable=False)
@@ -118,12 +127,15 @@ class UploadAudit(Base):
 class Company(Base):
     """Stable company identity dimension.
 
-    Only fields that never change across file versions live here.  Time-varying
-    fields (currency, accounting principles, year-end) are in CompanySnapshot
-    so each version preserves the value it contained.
+    Rated entity plus country of origin is the natural key.  The sector column
+    is retained here with the company identity so snapshot rows do not
+    duplicate company metadata.
     """
 
     __tablename__ = "company"
+    __table_args__ = (
+        UniqueConstraint("rated_entity", "country_of_origin", name="uq_company_identity"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     rated_entity: Mapped[str] = mapped_column(Text, nullable=False, index=True)
@@ -192,7 +204,6 @@ class CompanySnapshot(Base):
         Boolean, nullable=False, default=True, server_default=text("true"), index=True
     )
 
-    # Snapshot-level metadata (can vary between file versions)
     reporting_currency: Mapped[str] = mapped_column(String(10), nullable=False)
     accounting_principles: Mapped[AccountingPrinciples] = mapped_column(
         Enum(AccountingPrinciples, native_enum=False, values_callable=_by_value, length=10),

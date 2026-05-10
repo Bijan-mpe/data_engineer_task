@@ -13,7 +13,7 @@ content across runs.
 |---|---|---|
 | id | SERIAL PK | auto-incrementing int; readable in logs |
 | filename | TEXT | not unique |
-| file_hash | TEXT | SHA-256; idempotency key; indexed |
+| file_hash | TEXT | SHA-256; idempotency lookup key; indexed |
 | status | PipelineStatus | pending / running / success / failed / duplicate / skipped |
 | error_message | TEXT | nullable |
 | created_at | TIMESTAMPTZ | server default now() |
@@ -21,11 +21,14 @@ content across runs.
 | record_count | INT | nullable |
 | updated_at | TIMESTAMPTZ | server default now(); updated on every ORM write |
 
+**Indexes:** `file_hash`; `UNIQUE (file_hash) WHERE status = 'success'`
+partial (PostgreSQL) — prevents two successful loads of the same file hash
+while still allowing duplicate audit rows.
+
 ## company
 
-Stable identity dimension. Fields that change between file versions
-(currency, accounting principles, year-end) live in `company_snapshot`,
-not here.
+Stable identity dimension. Company metadata lives here; version-specific
+rating and reporting fields live in `company_snapshot`.
 
 | Column | Type | Notes |
 |---|---|---|
@@ -35,6 +38,8 @@ not here.
 | country_of_origin | TEXT | |
 | created_at | TIMESTAMPTZ | server default now() |
 | updated_at | TIMESTAMPTZ | server default now(); updated on every ORM write |
+
+**Constraints:** `UNIQUE (rated_entity, country_of_origin)`
 
 ## company_snapshot (SCD Type 2)
 

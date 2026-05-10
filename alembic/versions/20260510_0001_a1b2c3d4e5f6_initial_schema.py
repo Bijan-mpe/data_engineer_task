@@ -42,6 +42,13 @@ def upgrade() -> None:
         ),
     )
     op.create_index("ix_upload_audit_file_hash", "upload_audit", ["file_hash"])
+    op.create_index(
+        "ix_upload_audit_success_file_hash",
+        "upload_audit",
+        ["file_hash"],
+        unique=True,
+        postgresql_where=sa.text("status = 'success'"),
+    )
 
     op.create_table(
         "company",
@@ -61,6 +68,7 @@ def upgrade() -> None:
             nullable=False,
             server_default=sa.text("now()"),
         ),
+        sa.UniqueConstraint("rated_entity", "country_of_origin", name="uq_company_identity"),
     )
     op.create_index("ix_company_rated_entity", "company", ["rated_entity"])
 
@@ -253,5 +261,6 @@ def downgrade() -> None:
     op.drop_table("company_snapshot")
     op.drop_index("ix_company_rated_entity", table_name="company")
     op.drop_table("company")
+    op.drop_index("ix_upload_audit_success_file_hash", table_name="upload_audit")
     op.drop_index("ix_upload_audit_file_hash", table_name="upload_audit")
     op.drop_table("upload_audit")

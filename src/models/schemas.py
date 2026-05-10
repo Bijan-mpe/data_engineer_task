@@ -145,3 +145,62 @@ class PipelineRunReport(BaseModel):
     validation: ValidationReport | None = None
     error_message: str | None = None
     records_written: int = 0
+
+
+class LoadPlan(BaseModel):
+    """
+    Transformed representation ready for the load stage.
+
+    The extractor DTO mirrors the source workbook.  LoadPlan mirrors the
+    warehouse write contract: one company identity, one snapshot payload, and
+    three child collections.  Keeping this shape separate from DB writes makes
+    transformation testable without opening a database transaction.
+    """
+
+    filename: str
+    file_hash: str
+    extracted_at: datetime
+    rated_entity: str
+    corporate_sector: str
+    country_of_origin: str
+    reporting_currency: str
+    accounting_principles: AccountingPrinciples
+    business_year_end: BusinessYearEnd
+    segmentation_criteria: str | None = None
+    business_risk_profile: RatingGrade
+    blended_industry_risk_profile: RatingGrade
+    competitive_positioning: RatingGrade
+    market_share: RatingGrade
+    diversification: RatingGrade
+    operating_profitability: RatingGrade
+    sector_specific_factor_1: RatingGrade | None = None
+    sector_specific_factor_2: RatingGrade | None = None
+    financial_risk_profile: RatingGrade
+    leverage: RatingGrade
+    interest_cover: RatingGrade
+    cash_flow_cover: RatingGrade
+    liquidity: LiquidityScore
+    industry_segments: list[IndustrySegment]
+    rating_methodologies: list[str]
+    scope_metrics: list[ScopeMetric]
+
+
+class PipelineBatchReport(BaseModel):
+    """
+    Run-level report emitted after processing a directory of source files.
+
+    This is the data-quality and execution summary for a full pipeline run:
+    per-file reports remain available, while totals are precomputed for logs,
+    CI checks, and future sample-output deliverables.
+    """
+
+    started_at: datetime
+    finished_at: datetime
+    duration_seconds: float
+    files_found: int
+    reports: list[PipelineRunReport]
+    succeeded: int
+    failed: int
+    duplicates: int
+    records_written: int
+    validation_error_count: int

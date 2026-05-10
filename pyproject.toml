@@ -2,6 +2,9 @@
 pythonpath = ["."]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+markers = [
+    "integration: tests that require external services such as PostgreSQL",
+]
 filterwarnings = [
     # openpyxl read-only mode holds a ZipFile reference that Python's GC
     # occasionally closes before the ZipFile finalizer runs — harmless.
