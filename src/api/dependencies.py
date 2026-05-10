@@ -7,7 +7,7 @@ from collections.abc import AsyncGenerator
 from sqlalchemy.orm import Session
 
 from src.core.config import Settings, settings
-from src.core.db import SessionFactory
+from src.core.db import SessionFactory, health_check
 
 
 async def get_db_session() -> AsyncGenerator[Session, None]:
@@ -26,3 +26,8 @@ async def get_db_session() -> AsyncGenerator[Session, None]:
 async def get_settings() -> Settings:
     """Return application settings for request handlers."""
     return settings
+
+
+async def check_database_health() -> bool:
+    """Return whether the configured database is currently reachable."""
+    return health_check()

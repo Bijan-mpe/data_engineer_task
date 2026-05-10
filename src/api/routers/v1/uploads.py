@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from fastapi.responses import Response
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 from src.api.dependencies import get_db_session, get_settings
@@ -47,19 +47,15 @@ async def get_upload_details(
     return UploadAuditResponse.model_validate(upload)
 
 
-@router.get("/{upload_id}/file", response_class=Response)
+@router.get("/{upload_id}/file", response_class=FileResponse)
 async def get_upload_file(
     upload_id: int,
     session: Annotated[Session, Depends(get_db_session)],
     app_settings: Annotated[Settings, Depends(get_settings)],
-) -> Response:
+) -> FileResponse:
     """Return the source file for one upload audit row."""
     repository = UploadRepository(session, app_settings.data_dir)
     path = repository.get_source_file_path(upload_id)
     if path is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File not found")
-    return Response(
-        content=path.read_bytes(),
-        media_type="application/octet-stream",
-        headers={"Content-Disposition": f'attachment; filename="{path.name}"'},
-    )
+    return FileResponse(path, filename=path.name)

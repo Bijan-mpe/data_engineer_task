@@ -112,6 +112,21 @@ Your task is to build a data platform that enables:
   - GET /uploads/{upload_id}/file - Download original file (requirement #1)
   - GET /uploads/stats - Upload statistics and metrics
 
+- **Suggested Endpoints:** I added versioning to the endpoints and `/health` endpoint.
+  - GET /v1/companies
+  - GET /v1/companies/{company_id}
+  - GET /v1/companies/{company_id}/versions
+  - GET /v1/companies/{company_id}/history
+  - GET /v1/companies/compare
+  - GET /v1/snapshots
+  - GET /v1/snapshots/latest
+  - GET /v1/snapshots/{snapshot_id}
+  - GET /v1/uploads
+  - GET /v1/uploads/stats
+  - GET /v1/uploads/{upload_id}/details
+  - GET /v1/uploads/{upload_id}/file
+  - GET /health - Application and database readiness check for containers
+
 - **Technical:**
   - Pydantic models for request/response validation
   - OpenAPI/Swagger documentation

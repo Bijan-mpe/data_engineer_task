@@ -7,11 +7,13 @@ from types import SimpleNamespace
 
 import httpx
 import pytest
+from fastapi import Response
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import Session
 
-from src.api.dependencies import get_db_session, get_settings
+from src.api.dependencies import check_database_health, get_db_session, get_settings
 from src.api.main import create_app
+from src.api.routers.v1 import uploads
 from src.core.constants import (
     AccountingPrinciples,
     BusinessYearEnd,
@@ -67,8 +69,12 @@ def app(sqlite_engine, api_data):
     async def override_settings():
         return SimpleNamespace(data_dir=data_dir)
 
+    async def override_health():
+        return True
+
     app.dependency_overrides[get_db_session] = override_session
     app.dependency_overrides[get_settings] = override_settings
+    app.dependency_overrides[check_database_health] = override_health
     return app
 
 
@@ -237,6 +243,39 @@ async def test_openapi_available(app):
 
 
 @pytest.mark.asyncio
+async def test_health_ok(app):
+    response = await _get(app, "/health")
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok", "database": "ok"}
+
+
+@pytest.mark.asyncio
+async def test_health_unhealthy(sqlite_engine, api_data):
+    _ids, data_dir = api_data
+    app = create_app()
+
+    async def override_session():
+        session = Session(sqlite_engine)
+        try:
+            yield session
+        finally:
+            session.close()
+
+    async def override_settings():
+        return SimpleNamespace(data_dir=data_dir)
+
+    async def override_health():
+        return False
+
+    app.dependency_overrides[get_db_session] = override_session
+    app.dependency_overrides[get_settings] = override_settings
+    app.dependency_overrides[check_database_health] = override_health
+    response = await _get(app, "/health")
+    assert response.status_code == 503
+    assert response.json() == {"status": "unhealthy", "database": "unreachable"}
+
+
+@pytest.mark.asyncio
 async def test_list_companies(app):
     response = await _get(app, "/v1/companies")
     assert response.status_code == 200
@@ -371,8 +410,17 @@ async def test_get_upload_stats(app):
 
 
 @pytest.mark.asyncio
-async def test_get_upload_file(app, api_data):
+async def test_get_upload_file(app, api_data, monkeypatch):
     ids, _data_dir = api_data
+
+    def fake_file_response(path, filename):
+        return Response(
+            content=path.read_bytes(),
+            media_type="application/octet-stream",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
+
+    monkeypatch.setattr(uploads, "FileResponse", fake_file_response)
     response = await _get(app, f"/v1/uploads/{ids['upload_a1']}/file")
     assert response.status_code == 200
     assert response.content == b"workbook"

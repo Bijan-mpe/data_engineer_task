@@ -11,7 +11,7 @@ Both implement the same commit-on-success / rollback-on-exception contract.
 from contextlib import contextmanager
 from typing import Generator
 
-from sqlalchemy import URL, create_engine
+from sqlalchemy import URL, create_engine, text
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 from src.core.config import settings
@@ -58,6 +58,16 @@ def get_session() -> Generator[Session, None, None]:
         raise
     finally:
         session.close()
+
+
+def health_check() -> bool:
+    """Return True when the database accepts a simple SELECT 1 query."""
+    try:
+        with engine.connect() as connection:
+            connection.execute(text("SELECT 1"))
+    except Exception:
+        return False
+    return True
 
 
 @contextmanager

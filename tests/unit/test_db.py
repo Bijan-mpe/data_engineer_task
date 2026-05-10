@@ -6,7 +6,7 @@ import pytest
 from sqlalchemy import Engine
 from sqlalchemy.orm import DeclarativeBase, Session
 
-from src.core.db import Base, SessionFactory, engine, get_session, session_scope
+from src.core.db import Base, SessionFactory, engine, get_session, health_check, session_scope
 
 
 def test_engine_is_sqlalchemy_engine():
@@ -46,6 +46,22 @@ def test_get_session_is_plain_generator():
     import inspect
 
     assert inspect.isgeneratorfunction(get_session)
+
+
+def test_health_check_success_path():
+    """health_check returns True when SELECT 1 succeeds."""
+    mock_connection = MagicMock()
+    mock_context = MagicMock()
+    mock_context.__enter__.return_value = mock_connection
+    with patch("src.core.db.engine.connect", return_value=mock_context):
+        assert health_check() is True
+    mock_connection.execute.assert_called_once()
+
+
+def test_health_check_failure_path():
+    """health_check returns False instead of raising on DB failures."""
+    with patch("src.core.db.engine.connect", side_effect=RuntimeError("db down")):
+        assert health_check() is False
 
 
 def test_session_scope_success_path():
