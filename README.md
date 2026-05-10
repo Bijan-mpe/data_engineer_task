@@ -162,6 +162,20 @@ Your task is to build a data platform that enables:
   docker-compose up -d
   ```
 
+**Implemented compose flow:**
+- `postgres` uses PostgreSQL 16 with a persistent named volume and `pg_isready`
+  health check.
+- `api` waits for PostgreSQL health, runs Alembic migrations, optionally runs
+  the initial ETL pipeline over `data/`, then starts Uvicorn on port 8000.
+- The source `data/` directory is mounted read-only at `/app/data`.
+- `/health` checks API readiness and database connectivity.
+- `RUN_PIPELINE_ON_STARTUP=true` seeds the DB on API container start. This is
+  convenient for one-command startup, but repeated restarts still create
+  duplicate audit rows for duplicate files; set it to `false` after seeding if
+  you want API restarts to leave upload statistics unchanged.
+- Copy `.env.example` to `.env` before running Compose if you want to override
+  local defaults.
+
 ## Requirements & Evaluation Criteria
 
 ### 1. Data Engineering

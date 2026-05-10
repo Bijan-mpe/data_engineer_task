@@ -698,3 +698,86 @@ of being stranded after the pagination section.
 **Codex:** Restored the README requirements endpoint list to the original
 unversioned paths and added a separate `Suggested Endpoints` list containing
 the implemented `/v1/...` routes plus `/health`.
+
+## 33. Step 11 Implementation
+
+**User:** implement step-11
+
+**Codex:** Implemented Docker + Docker Compose:
+
+- Added `Dockerfile` using `python:3.12-slim`.
+- Added `docker-compose.yml` with `postgres` and `api` services.
+- Added `docker/entrypoint.sh` that runs Alembic migrations, runs the pipeline
+  once to seed from `data/`, then starts Uvicorn.
+- Added `.dockerignore`.
+- Added `.env.example` with database, API, and SQLAlchemy pool settings.
+- Mounted `./data` read-only into the API container at `/app/data`.
+- Added Postgres `pg_isready` health check and API `/health` health check.
+- Updated README containerization notes.
+- Added `tests/unit/test_docker.py`.
+- Ran `docker compose config` successfully after removing a hard `env_file`
+  requirement so first checkout works without a local `.env` file.
+
+Checks:
+
+- `pytest tests/unit/test_docker.py -q -p no:cacheprovider` passed with 6
+  tests.
+- `pytest tests/unit -q -p no:cacheprovider` passed with 347 tests.
+- `ruff check src tests alembic --no-cache` passed.
+- `pytest tests/integration -q -p no:cacheprovider` skipped both integration
+  tests cleanly without a configured PostgreSQL URL.
+- `docker compose config` succeeded.
+
+## 34. Step 11 Review
+
+**User:** This is the step 11 implementation review:
+```
+Medium: the image runs as root and keeps build tooling in the final runtime image. For a “production-ready” container, add a non-root user and either avoid build-essential or use a multi-stage/purge pattern. See Dockerfile (line 9).
+
+
+
+
+Medium: .dockerignore is too light. Because COPY . . is used, local folders like .claude/, tests, docs, and other workspace artifacts can enter the image. .env is ignored, good, but I’d also exclude .claude, .codex, tests, htmlcov, docs if not needed, and possibly data since Compose mounts it. See .dockerignore (line 1) and Dockerfile (line 16).
+
+
+
+
+Low: entrypoint runs the pipeline on every API container start. Idempotency prevents duplicate warehouse facts, but every restart can add duplicate audit rows, changing upload stats over time. That may be acceptable for this assignment, but it is worth documenting. See entrypoint.sh (line 7).
+
+
+
+
+Low: Docker tests are mostly string checks. They are useful smoke tests, but they won’t catch YAML shape regressions as well as parsing docker compose config or loading the Compose YAML structurally. See test_docker.py (line 16).
+```
+What do you think?
+
+**Codex:** Agreed with the review. Recommended fixing the root/build-tooling
+image issue, strengthening `.dockerignore`, documenting or making startup
+pipeline execution configurable, and improving Docker tests structurally if the
+project is willing to add a YAML parser.
+
+## 35. Step 11 Docker Hardening
+
+**User:** I aggree implement
+
+**Codex:** Implemented Docker hardening:
+
+- Removed `build-essential` from the final image.
+- Added a non-root `app` user and switched runtime execution to `USER app`.
+- Expanded `.dockerignore` to exclude local/tool/test/docs/data artifacts such
+  as `.claude`, `.codex`, `.agents`, `tests`, `docs`, and `data`.
+- Added `RUN_PIPELINE_ON_STARTUP` to make startup seeding configurable.
+- Documented the restart/audit-stat tradeoff in README.
+- Added `RUN_PIPELINE_ON_STARTUP` to `.env.example` and Compose environment.
+- Reworked Docker tests to use `docker compose config --format json` for
+  structural checks, skipping gracefully when Docker Compose is unavailable.
+
+Checks:
+
+- `pytest tests/unit/test_docker.py -q -p no:cacheprovider` passed with 7
+  tests.
+- `pytest tests/unit -q -p no:cacheprovider` passed with 348 tests.
+- `ruff check src tests alembic --no-cache` passed.
+- `pytest tests/integration -q -p no:cacheprovider` skipped both integration
+  tests cleanly without a configured PostgreSQL URL.
+- `docker compose config` succeeded.
