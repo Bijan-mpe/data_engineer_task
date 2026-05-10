@@ -7,7 +7,7 @@ schemas    Pipeline-internal DTOs (ExtractedFile, RawMasterData, ValidationRepor
 responses  FastAPI response models (CompanyResponse, SnapshotDetailResponse, etc.)
 orm        SQLAlchemy ORM table definitions
 
-See docs/data_model.md for the full ERD.
+See docs/architecture/data_model.md for the full ERD.
 
 Import convention
 -----------------

@@ -1,7 +1,7 @@
 """
 SQLAlchemy ORM table definitions.
 
-Reflects the star schema described in docs/data_model.md.  All models
+Reflects the star schema described in docs/architecture/data_model.md.  All models
 inherit from Base (src.core.db) so Alembic and the session factory see a
 single metadata registry.
 

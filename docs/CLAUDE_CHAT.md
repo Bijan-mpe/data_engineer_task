@@ -195,3 +195,6 @@ Before implementing, inspected all four `.xlsm` source files using `openpyxl` to
 | Repository after Pipeline (step 9) | Pipeline uses ORM directly; Repository is the DAO backbone for API only |
 | Alembic handles all DDL | No `schema.sql` — first migration = initial schema; Docker runs `alembic upgrade head` |
 | openpyxl only, no pandas | Explicit separation of concerns; can migrate to pandas later without breaking interface |
+
+******************************************
+My usage limitation has been hited and I couldnt use the chat to export other chat. I can do it afte May 11, 5pn. ("You've hit your limit · resets May 11, 5pm (Europe/Berlin)")

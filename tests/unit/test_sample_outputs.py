@@ -8,7 +8,7 @@ from pathlib import Path
 
 
 def test_sample_api_calls_include_at_least_ten_examples() -> None:
-    path = Path("docs/sample_api_calls.md")
+    path = Path("docs/samples/sample_api_calls.md")
     content = path.read_text(encoding="utf-8")
 
     assert content.count("curl ") >= 10
@@ -21,7 +21,7 @@ def test_sample_api_calls_include_at_least_ten_examples() -> None:
 
 
 def test_sample_api_json_blocks_are_valid() -> None:
-    content = Path("docs/sample_api_calls.md").read_text(encoding="utf-8")
+    content = Path("docs/samples/sample_api_calls.md").read_text(encoding="utf-8")
     blocks = _json_blocks(content)
 
     assert len(blocks) >= 10
@@ -42,7 +42,7 @@ def test_sample_api_json_blocks_are_valid() -> None:
 
 
 def test_data_quality_report_example_covers_all_source_files() -> None:
-    path = Path("docs/data_quality_report_example.md")
+    path = Path("docs/samples/data_quality_report_example.md")
     content = path.read_text(encoding="utf-8")
 
     assert "validation_error_count" in content
@@ -56,7 +56,7 @@ def test_data_quality_report_example_covers_all_source_files() -> None:
 
 
 def test_data_quality_report_json_blocks_are_valid() -> None:
-    content = Path("docs/data_quality_report_example.md").read_text(encoding="utf-8")
+    content = Path("docs/samples/data_quality_report_example.md").read_text(encoding="utf-8")
     payloads = [json.loads(block) for block in _json_blocks(content)]
 
     run_report = payloads[0]
@@ -72,7 +72,7 @@ def test_data_quality_report_json_blocks_are_valid() -> None:
 
 
 def test_pipeline_log_example_is_jsonl() -> None:
-    path = Path("docs/data_pipeline_log_example.jsonl")
+    path = Path("docs/samples/data_pipeline_log_example.jsonl")
     lines = path.read_text(encoding="utf-8").splitlines()
 
     assert len(lines) >= 3

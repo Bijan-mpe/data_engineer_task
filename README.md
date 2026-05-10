@@ -1,5 +1,8 @@
 # Senior Data Engineer Assignment - Corporate Credit Rating Data Pipeline
 
+This file preserves the original assignment requirements. See `SOLUTION.md`
+for the implemented solution, runbook, architecture, and assumptions.
+
 ## Overview
 Build a production-ready data pipeline that extracts corporate metadata from the MASTER sheet of Excel files, models it in a dimensional warehouse with temporal tracking, and exposes it through a RESTful API. The entire solution must be containerized using Docker Compose.
 
@@ -112,21 +115,6 @@ Your task is to build a data platform that enables:
   - GET /uploads/{upload_id}/file - Download original file (requirement #1)
   - GET /uploads/stats - Upload statistics and metrics
 
-- **Suggested Endpoints:** I added versioning to the endpoints and `/health` endpoint.
-  - GET /v1/companies
-  - GET /v1/companies/{company_id}
-  - GET /v1/companies/{company_id}/versions
-  - GET /v1/companies/{company_id}/history
-  - GET /v1/companies/compare
-  - GET /v1/snapshots
-  - GET /v1/snapshots/latest
-  - GET /v1/snapshots/{snapshot_id}
-  - GET /v1/uploads
-  - GET /v1/uploads/stats
-  - GET /v1/uploads/{upload_id}/details
-  - GET /v1/uploads/{upload_id}/file
-  - GET /health - Application and database readiness check for containers
-
 - **Technical:**
   - Pydantic models for request/response validation
   - OpenAPI/Swagger documentation
@@ -161,20 +149,6 @@ Your task is to build a data platform that enables:
   ```bash
   docker-compose up -d
   ```
-
-**Implemented compose flow:**
-- `postgres` uses PostgreSQL 16 with a persistent named volume and `pg_isready`
-  health check.
-- `api` waits for PostgreSQL health, runs Alembic migrations, optionally runs
-  the initial ETL pipeline over `data/`, then starts Uvicorn on port 8000.
-- The source `data/` directory is mounted read-only at `/app/data`.
-- `/health` checks API readiness and database connectivity.
-- `RUN_PIPELINE_ON_STARTUP=true` seeds the DB on API container start. This is
-  convenient for one-command startup, but repeated restarts still create
-  duplicate audit rows for duplicate files; set it to `false` after seeding if
-  you want API restarts to leave upload statistics unchanged.
-- Copy `.env.example` to `.env` before running Compose if you want to override
-  local defaults.
 
 ## Requirements & Evaluation Criteria
 

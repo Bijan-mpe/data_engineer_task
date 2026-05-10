@@ -890,3 +890,55 @@ Checks:
   skipped 3 PostgreSQL-dependent tests without a configured database URL.
 - `ruff check src tests alembic --no-cache` passed.
 - `docker compose config` succeeded.
+
+## 39. Documentation Restructure Planning
+
+**User:** All the steps are passed, These are topic of new steps.
+- Document management: create a well formed structure for documens
+- Make sure the e2e test will be passed
+- Make sure all the Integration tests wil be passed
+- Generate api  definition openapi doc and put it in docs/. let call it swager and must be generated after running fastapi
+- Review and omplete AI_Agent document
+
+Lets start  with documentation I would like to create afolder structure like this for document, what do you think:
+```
+README.md                 # original assignment / requirements
+SOLUTION.md               # our project explanation and how to run it
+AI_USAGE.md               # required AI disclosure - the tasks and assumption part must be moved to solution
+```
+
+## 40. Start Documentation Restructure
+
+**User:** perfect start
+
+**Codex:** Started the documentation restructure:
+
+- Added `SOLUTION.md` as the implementation runbook and architecture summary.
+- Moved implementation assumptions and future tasks out of `AI_USAGE.md` into
+  `SOLUTION.md`.
+- Kept `README.md` focused on the original assignment requirements, with only a
+  short pointer to `SOLUTION.md`.
+- Moved `docs/data_model.md` to `docs/architecture/data_model.md`.
+- Moved sample output files to `docs/samples/`.
+- Added `docs/openapi/.gitkeep` so the future generated Swagger/OpenAPI folder
+  exists.
+- Updated source comments and sample-output tests to use the new doc paths.
+
+Checks:
+
+- `pytest tests/unit/test_sample_outputs.py -q -p no:cacheprovider` passed with
+  5 tests.
+- `ruff check src tests alembic --no-cache` passed.
+- Confirmed no stale documentation paths remain outside `CODEX_CHAT.md`
+  history.
+
+## 41. Move Chat Logs Under Docs
+
+**User:** Move Also AI_Chat to /docs and rename it to CLAUDE_CHAT.md
+move Codex chat file also to docs
+
+**Codex:** Moved chat logs into `docs/`:
+
+- `AI_Chat.md` moved to `docs/CLAUDE_CHAT.md`.
+- `CODEX_CHAT.md` moved to `docs/CODEX_CHAT.md`.
+- Updated `SOLUTION.md` and `AI_USAGE.md` references to the new locations.
