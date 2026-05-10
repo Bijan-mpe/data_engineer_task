@@ -508,6 +508,73 @@ Checks:
 - `pytest tests/integration -q -p no:cacheprovider` skipped both integration
   tests cleanly without a configured PostgreSQL URL.
 
+## 27. SQLAlchemy Engine Pool Settings Discussion
+
+**User:** I think we should define pool_size, max_overflow, pool_timeout, pool_recycle in sqlalchemy create_engine.  and the values of sqlalchemy engin configuration also come from settings and envs. What do you think?
+
+**Codex:** Agreed that production-style SQLAlchemy engine pool settings should
+come from `Settings`/environment variables and recommended adding
+`sqlalchemy_pool_size`, `sqlalchemy_max_overflow`, `sqlalchemy_pool_timeout`,
+and `sqlalchemy_pool_recycle` before Docker/runtime configuration.
+
+## 28. SQLAlchemy Pool Settings Implementation
+
+**User:** Ok Implement it.
+Also add the following note under "# Implementation assumption and consideration":
+another thing that must be considered is that our current implementation uses syncsqlalchemy with fastapi, that is totally acceptable now, but for a production async api, we should either make the route handlers sync def, allowing fastapi to run them in a threadpool, or migrate the db layer to SQLAlchemy async engine with AsyncSession. 
+
+**Codex:** Added SQLAlchemy pool settings to `Settings`:
+
+- `sqlalchemy_pool_size`
+- `sqlalchemy_max_overflow`
+- `sqlalchemy_pool_timeout`
+- `sqlalchemy_pool_recycle`
+
+Then wired those values into `create_engine()` in `src/core/db.py`. Added unit
+tests for default/env settings and engine pool configuration. Added the user's
+sync-SQLAlchemy/FastAPI production consideration under the existing
+`# Implementation assumption` section in `AI_USAGE.md`.
+
+Checks:
+
+- `pytest tests/unit/test_config.py tests/unit/test_db.py -q -p no:cacheprovider`
+  passed with 20 tests.
+- `pytest tests/unit -q -p no:cacheprovider` passed with 337 tests.
+- `ruff check src tests alembic --no-cache` passed.
+
+## 26. Step 10 Implementation
+
+**User:** implement step 10.
+
+**Codex:** Implemented Step 10 FastAPI routes:
+
+- Added `src/api/main.py` with `create_app()` and default `app`.
+- Added `src/api/dependencies.py` for database/session and settings
+  dependency injection.
+- Added v1 routers:
+  - `src/api/routers/v1/companies.py`
+  - `src/api/routers/v1/snapshots.py`
+  - `src/api/routers/v1/uploads.py`
+- Registered all v1 routers under `/v1`.
+- Implemented company list/detail/versions/history/compare endpoints.
+- Implemented snapshot list/latest/detail endpoints.
+- Implemented upload list/details/file/stats endpoints.
+- Added API unit tests in `tests/unit/test_api.py`.
+
+During testing, `fastapi.testclient.TestClient` hung in this environment, so
+Codex switched API tests to `httpx.AsyncClient` with `ASGITransport`. The file
+download endpoint was implemented as a binary `Response` with a
+`Content-Disposition` attachment header instead of `FileResponse`, because
+`FileResponse` also took the hanging threadpool path in this sandbox.
+
+Checks:
+
+- `pytest tests/unit/test_api.py -q -p no:cacheprovider` passed with 18 tests.
+- `pytest tests/unit -q -p no:cacheprovider` passed with 334 tests.
+- `ruff check src tests alembic --no-cache` passed.
+- `pytest tests/integration -q -p no:cacheprovider` skipped both integration
+  tests cleanly without a configured PostgreSQL URL.
+
 ## 23. Step 9 Hardening Review
 
 **User:** Check review report:

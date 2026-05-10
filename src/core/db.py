@@ -26,6 +26,10 @@ engine = create_engine(
         database=settings.postgres_db,
     ),
     pool_pre_ping=True,
+    pool_size=settings.sqlalchemy_pool_size,
+    max_overflow=settings.sqlalchemy_max_overflow,
+    pool_timeout=settings.sqlalchemy_pool_timeout,
+    pool_recycle=settings.sqlalchemy_pool_recycle,
 )
 SessionFactory = sessionmaker(bind=engine, autocommit=False, autoflush=False)
 

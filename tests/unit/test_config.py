@@ -34,6 +34,28 @@ def test_database_url_reflects_overridden_parts(monkeypatch):
     assert "db.prod.internal:5433" in s.database_url
 
 
+def test_sqlalchemy_pool_settings_have_defaults():
+    """SQLAlchemy engine pool settings must have production-safe defaults."""
+    s = Settings()
+    assert s.sqlalchemy_pool_size == 5
+    assert s.sqlalchemy_max_overflow == 10
+    assert s.sqlalchemy_pool_timeout == 30
+    assert s.sqlalchemy_pool_recycle == 1800
+
+
+def test_sqlalchemy_pool_settings_read_from_env(monkeypatch):
+    """Pool settings must be configurable from environment variables."""
+    monkeypatch.setenv("SQLALCHEMY_POOL_SIZE", "7")
+    monkeypatch.setenv("SQLALCHEMY_MAX_OVERFLOW", "3")
+    monkeypatch.setenv("SQLALCHEMY_POOL_TIMEOUT", "12")
+    monkeypatch.setenv("SQLALCHEMY_POOL_RECYCLE", "900")
+    s = Settings()
+    assert s.sqlalchemy_pool_size == 7
+    assert s.sqlalchemy_max_overflow == 3
+    assert s.sqlalchemy_pool_timeout == 12
+    assert s.sqlalchemy_pool_recycle == 900
+
+
 def test_postgres_password_is_required(monkeypatch):
     """Missing POSTGRES_PASSWORD must raise at Settings() construction time."""
     monkeypatch.delenv("POSTGRES_PASSWORD", raising=False)

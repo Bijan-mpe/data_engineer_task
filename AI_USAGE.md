@@ -86,6 +86,7 @@ Thank you for your transparency!
 # Implementation assumption
 - at each time one instance of the pipeline is runnign. I handled some concurrent runing issues but I have not deeply check if it is safe to run several instance of a pipeline at same time with shared data/ volume.
 - I assume that idempotency can be based on file content, but there can be other case that data analyst want to test same content as a test case, in the case hash of filename+filecontent is better.
+- another thing that must be considered is that our current implementation uses syncsqlalchemy with fastapi, that is totally acceptable now, but for a production async api, we should either make the route handlers sync def, allowing fastapi to run them in a threadpool, or migrate the db layer to SQLAlchemy async engine with AsyncSession.
 - 
 # TASKs
 

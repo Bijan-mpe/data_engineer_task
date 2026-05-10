@@ -21,6 +21,16 @@ def test_engine_dialect_is_postgresql():
     assert engine.dialect.name == "postgresql"
 
 
+def test_engine_pool_uses_configured_settings():
+    """Engine queue pool must use Settings-derived pool values."""
+    from src.core.config import settings
+
+    assert engine.pool.size() == settings.sqlalchemy_pool_size
+    assert engine.pool._max_overflow == settings.sqlalchemy_max_overflow
+    assert engine.pool._timeout == settings.sqlalchemy_pool_timeout
+    assert engine.pool._recycle == settings.sqlalchemy_pool_recycle
+
+
 def test_session_factory_creates_session():
     session = SessionFactory()
     assert isinstance(session, Session)
