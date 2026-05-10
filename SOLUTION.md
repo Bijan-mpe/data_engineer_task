@@ -226,6 +226,3 @@ docs/openapi/swagger.json
   report covers run totals and per-file validation errors; extraction failures,
   load failures, audit-write failures, warning counts, validity rates, and
   rule-level completeness metrics can be expanded further.
-- Convert all logs to JSON structured logs using `structlog`. At the beginning
-  of each process, bind shared context with `structlog`'s `bind` pattern so all
-  following logs carry the same process, file, and run context.

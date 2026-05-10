@@ -8,10 +8,20 @@ from fastapi import Depends, FastAPI, Response, status
 
 from src.api.dependencies import check_database_health
 from src.api.routers.v1 import router as v1_router
+from src.core.config import settings
+from src.core.logging import get_logger, setup_logging
+
+logger = get_logger(__name__).bind(process="api")
 
 
 def create_app() -> FastAPI:
     """Create and configure the FastAPI application."""
+    setup_logging(settings.log_level)
+    logger.info(
+        "api.startup",
+        environment=settings.environment,
+        log_level=settings.log_level,
+    )
     app = FastAPI(
         title="Scope Ratings Data API",
         version="0.1.0",

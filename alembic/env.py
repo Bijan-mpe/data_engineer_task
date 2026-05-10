@@ -7,18 +7,17 @@ src.models.orm is imported explicitly so all ORM classes are registered
 with Base.metadata before Alembic inspects it for autogeneration.
 """
 
-from logging.config import fileConfig
-
 from sqlalchemy import engine_from_config, pool
 
 import src.models.orm  # noqa: F401 — registers all ORM classes with Base.metadata
 from alembic import context
 from src.core.db import Base
+from src.core.logging import get_logger, setup_logging
 
 config = context.config
 
-if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
+setup_logging()
+logger = get_logger(__name__).bind(process="alembic")
 
 target_metadata = Base.metadata
 
@@ -36,6 +35,7 @@ def _get_url() -> str:
 
 def run_migrations_offline() -> None:
     """Emit migration SQL to stdout without a live DB connection."""
+    logger.info("alembic.migration_offline_started")
     context.configure(
         url=_get_url(),
         target_metadata=target_metadata,
@@ -45,10 +45,12 @@ def run_migrations_offline() -> None:
     )
     with context.begin_transaction():
         context.run_migrations()
+    logger.info("alembic.migration_offline_completed")
 
 
 def run_migrations_online() -> None:
     """Apply migrations against a live DB connection."""
+    logger.info("alembic.migration_online_started")
     configuration = config.get_section(config.config_ini_section, {})
     configuration["sqlalchemy.url"] = _get_url()
     connectable = engine_from_config(
@@ -64,6 +66,7 @@ def run_migrations_online() -> None:
         )
         with context.begin_transaction():
             context.run_migrations()
+    logger.info("alembic.migration_online_completed")
 
 
 if context.is_offline_mode():

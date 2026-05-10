@@ -22,6 +22,11 @@ import re
 import subprocess
 import sys
 
+from src.core.logging import get_logger, setup_logging
+
+setup_logging()
+logger = get_logger(__name__).bind(process="alembic_new_migration")
+
 
 def main() -> None:
     """Run alembic revision and rename the output file."""
@@ -33,17 +38,17 @@ def main() -> None:
         capture_output=True,
         text=True,
     )
+    logger.info("alembic.revision_command_completed", returncode=result.returncode)
     # Always forward stderr (contains Alembic progress messages)
     if result.stderr:
-        print(result.stderr, end="", file=sys.stderr)
+        logger.info("alembic.revision_stderr", output=result.stderr)
     if result.returncode != 0:
         sys.exit(result.returncode)
 
     # Alembic prints: "Generating /full/path/to/file ...  done"
     match = re.search(r"Generating (.+?) \.\.\.", result.stdout + result.stderr)
     if not match:
-        # Unexpected output format — print what we have and exit cleanly
-        print(result.stdout, end="")
+        logger.warning("alembic.revision_output_unmatched", output=result.stdout)
         return
 
     script_path = match.group(1).strip()
@@ -63,7 +68,11 @@ def main() -> None:
     new_path = os.path.join(versions_dir, new_basename)
 
     os.rename(script_path, new_path)
-    print(f"  Created: {new_basename}")
+    logger.info(
+        "alembic.revision_created",
+        filename=new_basename,
+        path=new_path,
+    )
 
 
 if __name__ == "__main__":

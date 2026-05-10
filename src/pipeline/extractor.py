@@ -96,7 +96,7 @@ def extract_file(path: Path) -> ExtractedFile:
             f"Expected {DATA_FILE_EXTENSION} file, got: {path.suffix}"
         )
 
-    logger.info("Extracting file: %s", path.name)
+    logger.bind(filename=path.name).info("extractor.file_started")
     file_hash = _compute_sha256(path)
     try:
         raw_data = _parse_master_sheet(path)

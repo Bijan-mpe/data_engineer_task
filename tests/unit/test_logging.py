@@ -22,6 +22,15 @@ def test_get_logger_emits_structured_event():
     assert events[0]["rows"] == 40
 
 
+def test_bound_logger_preserves_context():
+    """Bound context must be included in each emitted log event."""
+    logger = get_logger("test.bind").bind(process="pipeline", filename="a.xlsm")
+    with capture_logs() as events:
+        logger.info("pipeline.file_started")
+    assert events[0]["process"] == "pipeline"
+    assert events[0]["filename"] == "a.xlsm"
+
+
 def test_get_logger_records_correct_log_level():
     """The log_level field must match the method used to emit each event."""
     logger = get_logger("test.levels")

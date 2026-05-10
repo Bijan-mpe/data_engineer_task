@@ -34,7 +34,7 @@ from sqlalchemy.exc import IntegrityError, OperationalError
 from sqlalchemy.orm import Session
 
 from src.core.constants import DATA_FILE_EXTENSION, PipelineStatus
-from src.core.logging import get_logger
+from src.core.logging import get_logger, setup_logging
 from src.models.orm import (
     Company,
     RatingMethodology,
@@ -77,6 +77,7 @@ class Pipeline:
 
     def __init__(self, session: Session) -> None:
         self._session = session
+        self._logger = logger.bind(component="pipeline")
 
     # ── public API ────────────────────────────────────────────────────────────
 
@@ -136,6 +137,10 @@ class Pipeline:
         audit.processed_at = now
         audit.record_count = records_written
         self._session.commit()
+        self._logger.bind(filename=plan.filename).info(
+            "pipeline.load_committed",
+            records_written=records_written,
+        )
         return records_written
 
     def process_file(self, path: Path) -> PipelineRunReport:
@@ -151,13 +156,15 @@ class Pipeline:
         audit record is committed in a separate transaction.
         """
         now = datetime.now(tz=timezone.utc)
-        logger.info("Processing: %s", path.name)
+        file_logger = self._logger.bind(filename=path.name)
+        file_logger.info("pipeline.file_started")
 
         # ── 1. extract ────────────────────────────────────────────────────────
         try:
             extracted = self.extract(path)
+            file_logger = file_logger.bind(file_hash=extracted.file_hash)
         except ExtractionError as exc:
-            logger.error("Extraction failed for %s: %s", path.name, exc)
+            file_logger.error("pipeline.extraction_failed", error=str(exc))
             self._write_audit(path.name, "", PipelineStatus.FAILED, str(exc), now)
             return PipelineRunReport(
                 filename=path.name,
@@ -165,7 +172,10 @@ class Pipeline:
                 error_message=str(exc),
             )
         except Exception as exc:
-            logger.exception("Unexpected extraction failure for %s: %s", path.name, exc)
+            file_logger.exception(
+                "pipeline.extraction_unexpected_failure",
+                error=str(exc),
+            )
             self._write_audit(path.name, "", PipelineStatus.FAILED, str(exc), now)
             return PipelineRunReport(
                 filename=path.name,
@@ -175,7 +185,7 @@ class Pipeline:
 
         # ── 2. duplicate check ────────────────────────────────────────────────
         if self._is_duplicate(extracted.file_hash):
-            logger.info("Duplicate: %s (hash already loaded)", path.name)
+            file_logger.info("pipeline.duplicate_detected")
             self._write_audit(path.name, extracted.file_hash, PipelineStatus.DUPLICATE, None, now)
             return PipelineRunReport(
                 filename=path.name,
@@ -189,7 +199,11 @@ class Pipeline:
             error_msg = "; ".join(
                 f"{e.field}: {e.message}" for e in validation.errors
             )
-            logger.warning("Validation failed for %s: %s", path.name, error_msg)
+            file_logger.warning(
+                "pipeline.validation_failed",
+                validation_error_count=len(validation.errors),
+                error=error_msg,
+            )
             self._write_audit(path.name, extracted.file_hash, PipelineStatus.FAILED, error_msg, now)
             return PipelineRunReport(
                 filename=path.name,
@@ -206,7 +220,7 @@ class Pipeline:
         except IntegrityError as exc:
             self._session.rollback()
             if self._is_duplicate(extracted.file_hash):
-                logger.info("Duplicate detected by database constraint: %s", path.name)
+                file_logger.info("pipeline.duplicate_detected_by_constraint")
                 self._write_audit(
                     path.name,
                     extracted.file_hash,
@@ -220,7 +234,7 @@ class Pipeline:
                     company_name=extracted.data.rated_entity,
                     validation=validation,
                 )
-            logger.exception("Load constraint failed for %s: %s", path.name, exc)
+            file_logger.exception("pipeline.load_constraint_failed", error=str(exc))
             self._write_audit(
                 path.name, extracted.file_hash, PipelineStatus.FAILED, str(exc), now
             )
@@ -233,7 +247,7 @@ class Pipeline:
             )
         except Exception as exc:
             self._session.rollback()
-            logger.exception("Load failed for %s: %s", path.name, exc)
+            file_logger.exception("pipeline.load_failed", error=str(exc))
             self._write_audit(
                 path.name, extracted.file_hash, PipelineStatus.FAILED, str(exc), now
             )
@@ -245,11 +259,10 @@ class Pipeline:
                 error_message=str(exc),
             )
 
-        logger.info(
-            "Loaded %s → %s (%d records)",
-            path.name,
-            extracted.data.rated_entity,
-            records_written,
+        file_logger.info(
+            "pipeline.file_loaded",
+            company_name=extracted.data.rated_entity,
+            records_written=records_written,
         )
         return PipelineRunReport(
             filename=path.name,
@@ -282,8 +295,17 @@ class Pipeline:
         """Process a directory and optionally write a JSON data-quality report."""
         started_at = datetime.now(tz=timezone.utc)
         files = sorted(data_dir.glob(f"*{DATA_FILE_EXTENSION}"))
+        run_logger = self._logger.bind(
+            data_dir=str(data_dir),
+            report_dir=str(report_dir) if report_dir is not None else None,
+            started_at=started_at.isoformat(),
+        )
+        run_logger.info("pipeline.run_started", files_found=len(files))
         if not files:
-            logger.warning("No %s files found in %s", DATA_FILE_EXTENSION, data_dir)
+            run_logger.warning(
+                "pipeline.no_files_found",
+                file_extension=DATA_FILE_EXTENSION,
+            )
             finished_at = datetime.now(tz=timezone.utc)
             report = PipelineBatchReport(
                 started_at=started_at,
@@ -299,6 +321,15 @@ class Pipeline:
             )
             if report_dir is not None:
                 self.write_quality_report(report, report_dir)
+            run_logger.info(
+                "pipeline.run_completed",
+                duration_seconds=report.duration_seconds,
+                succeeded=report.succeeded,
+                failed=report.failed,
+                duplicates=report.duplicates,
+                records_written=report.records_written,
+                validation_error_count=report.validation_error_count,
+            )
             return report
 
         reports = [self.process_file(f) for f in files]
@@ -319,6 +350,15 @@ class Pipeline:
         )
         if report_dir is not None:
             self.write_quality_report(report, report_dir)
+        run_logger.info(
+            "pipeline.run_completed",
+            duration_seconds=report.duration_seconds,
+            succeeded=report.succeeded,
+            failed=report.failed,
+            duplicates=report.duplicates,
+            records_written=report.records_written,
+            validation_error_count=report.validation_error_count,
+        )
         return report
 
     def write_quality_report(
@@ -334,7 +374,7 @@ class Pipeline:
             json.dumps(report.model_dump(mode="json"), indent=2) + "\n",
             encoding="utf-8",
         )
-        logger.info("Data quality report written: %s", path)
+        self._logger.info("pipeline.quality_report_written", report_path=str(path))
         return path
 
     # ── private helpers ───────────────────────────────────────────────────────
@@ -373,9 +413,16 @@ class Pipeline:
             )
             self._session.add(audit)
             self._session.commit()
+            self._logger.bind(filename=filename).info(
+                "pipeline.audit_written",
+                status=status,
+            )
         except Exception:
             self._session.rollback()
-            logger.exception("Failed to write audit record for %s", filename)
+            self._logger.bind(filename=filename).exception(
+                "pipeline.audit_write_failed",
+                status=status,
+            )
 
     def _load_with_retry(self, plan: LoadPlan, now: datetime) -> int:
         """Run load with bounded retries for transient database failures.
@@ -393,12 +440,11 @@ class Pipeline:
                 if not self._is_company_identity_race(exc) or attempt == _MAX_LOAD_ATTEMPTS:
                     raise
                 delay = 0.1 * (2 ** (attempt - 1))
-                logger.warning(
-                    "Company identity race for %s; retrying in %.1fs (%d/%d)",
-                    plan.filename,
-                    delay,
-                    attempt,
-                    _MAX_LOAD_ATTEMPTS,
+                self._logger.bind(filename=plan.filename).warning(
+                    "pipeline.company_identity_race_retry",
+                    delay_seconds=delay,
+                    attempt=attempt,
+                    max_attempts=_MAX_LOAD_ATTEMPTS,
                 )
                 time.sleep(delay)
             except OperationalError:
@@ -406,12 +452,11 @@ class Pipeline:
                 if attempt == _MAX_LOAD_ATTEMPTS:
                     raise
                 delay = 0.1 * (2 ** (attempt - 1))
-                logger.warning(
-                    "Transient load failure for %s; retrying in %.1fs (%d/%d)",
-                    plan.filename,
-                    delay,
-                    attempt,
-                    _MAX_LOAD_ATTEMPTS,
+                self._logger.bind(filename=plan.filename).warning(
+                    "pipeline.transient_load_retry",
+                    delay_seconds=delay,
+                    attempt=attempt,
+                    max_attempts=_MAX_LOAD_ATTEMPTS,
                 )
                 time.sleep(delay)
         raise RuntimeError("unreachable load retry state")
@@ -572,7 +617,13 @@ def main() -> None:
     from src.core.config import settings
     from src.core.db import session_scope
 
-    logger.info("Pipeline starting — data_dir=%s", settings.data_dir)
+    setup_logging(settings.log_level)
+    cli_logger = logger.bind(
+        process="pipeline_cli",
+        data_dir=str(settings.data_dir),
+        quality_report_dir=str(settings.quality_report_dir),
+    )
+    cli_logger.info("pipeline.cli_started")
 
     with session_scope() as session:
         pipeline = Pipeline(session)
@@ -580,13 +631,13 @@ def main() -> None:
             settings.data_dir,
             report_dir=settings.quality_report_dir,
         )
-    logger.info(
-        "Pipeline complete — %d succeeded, %d failed, %d duplicate, %d records, %.2fs",
-        batch_report.succeeded,
-        batch_report.failed,
-        batch_report.duplicates,
-        batch_report.records_written,
-        batch_report.duration_seconds,
+    cli_logger.info(
+        "pipeline.cli_completed",
+        succeeded=batch_report.succeeded,
+        failed=batch_report.failed,
+        duplicates=batch_report.duplicates,
+        records_written=batch_report.records_written,
+        duration_seconds=batch_report.duration_seconds,
     )
     if batch_report.failed:
         sys.exit(1)

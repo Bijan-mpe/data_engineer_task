@@ -30,6 +30,8 @@ def setup_logging(log_level: str = "INFO") -> None:
     # Processors run in order, each one transforms the log entry
     structlog.configure(
         processors=[
+            # Add logger name to every entry
+            structlog.stdlib.add_logger_name,
             # Add log level to every entry
             structlog.stdlib.add_log_level,
             # Add timestamp to every entry

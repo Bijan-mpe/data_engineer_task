@@ -271,3 +271,80 @@ No I mean export all the messages in the orginal order with my original messages
 **Codex:** Replaced the file with this chronological transcript format: each
 turn appears in original order, with the user's original wording preserved in
 the `User` block and Codex's corresponding response/outcome recorded after it.
+
+## 25. Structlog Usage Check
+
+**User:**
+```text
+Check if all logging codes used structlog
+```
+
+**Codex:** Checked logging implementation and usages across `src`, tests,
+Alembic, Docker helpers, and Makefile. Found that the project has structlog
+infrastructure through `src/core/logging.py`, and application modules use
+`get_logger(__name__)`, but logging is not fully consistent yet:
+
+- `setup_logging()` is not called by the FastAPI app or pipeline CLI.
+- Pipeline log calls still use printf-style messages instead of structured
+  event names and key/value fields.
+- No process/file-level `bind()` context is used.
+- Alembic uses standard logging config.
+- `alembic/new_migration.py` uses `print(...)` for CLI output.
+
+Conclusion: structlog exists, but logging is not yet consistently structured or
+initialized everywhere.
+
+## 26. Keep Overviewer Chat Updated
+
+**User:**
+```text
+Add last messages into the overviewr chat file. and any following chat messages.
+```
+
+**Codex:** Added the recent structlog-check exchange and this instruction to
+`docs/OVERVIEWER_CHAT.md`. Going forward in this thread, Codex will keep adding
+new visible user/Codex exchanges to this file in chronological order with the
+user's original wording preserved.
+
+## 27. Logging System Re-Review
+
+**User:**
+```text
+review the logging system again
+```
+
+**Codex:** Re-reviewed logging after the latest changes. Found that logging is
+now much closer to the requested standard:
+
+- `src/core/logging.py` configures structlog JSON logs with logger name, level,
+  timestamp, exception formatting, and JSON rendering.
+- `src/api/main.py` calls `setup_logging(settings.log_level)` and logs
+  `api.startup` with structured fields.
+- `src/pipeline/pipeline.py` calls `setup_logging()` in the CLI entrypoint,
+  uses bound loggers for pipeline/component/file/run context, and emits
+  structured event names with keyword fields.
+- `src/pipeline/extractor.py` uses `get_logger(__name__)` and a bound
+  `filename` context for extraction start.
+- `alembic/env.py` and `alembic/new_migration.py` now use `setup_logging()`,
+  `get_logger()`, `.bind(...)`, and structured event names instead of standard
+  logging/print output.
+- Logging tests now cover structured event fields, bound context, log levels,
+  and setup across standard levels.
+
+Remaining review notes:
+
+- `setup_logging()` is called at import/app factory time in a few places, which
+  is acceptable here but can be noisy in tests or repeated app construction.
+- Some SQLAlchemy/Uvicorn third-party logs may still use their own standard
+  logging format unless separately configured.
+- The pipeline has good run/file context, but extractor logs only bind
+  `filename`; deeper extractor-stage context could be added later if desired.
+
+Checks run:
+
+- `pytest tests/unit/test_logging.py tests/unit/test_pipeline.py tests/unit/test_api.py tests/unit/test_migrations.py -q -p no:cacheprovider`
+  passed with 80 tests.
+- `ruff check src/core/logging.py src/api/main.py src/pipeline src/core alembic tests/unit/test_logging.py tests/unit/test_pipeline.py tests/unit/test_api.py tests/unit/test_migrations.py --no-cache`
+  passed.
+- A search for printf-style/f-string logger calls in `src` and `alembic`
+  returned no matches.

@@ -942,3 +942,64 @@ move Codex chat file also to docs
 - `AI_Chat.md` moved to `docs/CLAUDE_CHAT.md`.
 - `CODEX_CHAT.md` moved to `docs/CODEX_CHAT.md`.
 - Updated `SOLUTION.md` and `AI_USAGE.md` references to the new locations.
+
+## 42. Structured Logging Review
+
+**User:** we have some issues in logging system. I wanted to use structlog and bind in every single log 
+Issues:
+
+
+setup_logging() is not called by the FastAPI app or pipeline CLI. src/api/main.py does not initialize logging at startup.
+
+Most pipeline log calls use printf-style messages instead of structured key/value logs, e.g. pipeline.py (line 154):
+python
+
+
+
+logger.info("Processing: %s", path.name)
+
+
+
+Better:
+python
+
+
+
+logger.info("pipeline.file_started", filename=path.name)
+
+
+
+
+
+No bind() context is used at process/file level, even though your AI_USAGE task asks for bound context.
+
+alembic/env.py still uses standard logging config via from logging.config import fileConfig.
+
+alembic/new_migration.py uses print(...), which is okay for a small CLI helper, but it is not structlog.
+
+
+So the answer is: the project has structlog infrastructure, but logging usage is not yet consistently structured or initialized everywhere.
+
+**Codex:** Implemented consistent structured logging:
+
+- `src/api/main.py` now calls `setup_logging(settings.log_level)` during app
+  creation and emits an `api.startup` event.
+- `src/pipeline/pipeline.py` now calls `setup_logging()` in the CLI entrypoint,
+  uses event-name logs, and binds process/run/file context with `bind()`.
+- `src/pipeline/extractor.py` now emits structured extraction events.
+- `src/core/logging.py` now includes logger name in each structured log entry.
+- `alembic/env.py` now uses project structlog setup instead of
+  `logging.config.fileConfig`.
+- `alembic/new_migration.py` now uses structlog events instead of `print()`.
+- Added a logging unit test that verifies bound context is preserved.
+- Removed the structured-logging item from `SOLUTION.md` future improvements
+  and updated `AI_USAGE.md` wording to describe it as an initial issue.
+
+Checks:
+
+- `pytest tests/unit -q -p no:cacheprovider` passed with 356 tests.
+- `pytest tests/integration -q -p no:cacheprovider` passed with 1 test and
+  skipped 3 PostgreSQL-dependent tests without a configured database URL.
+- `ruff check src tests alembic --no-cache` passed.
+- Confirmed no remaining printf-style logger calls, `print()` calls, or
+  `fileConfig` imports under `src` and `alembic`.
