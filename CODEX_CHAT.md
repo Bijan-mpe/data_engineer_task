@@ -430,3 +430,134 @@ going forward and updated immediately as new exchanges happen.
 
 **User:** Add it to improvement tasks of AI_Usage:
 All the logs must be json structured logs using structlog. and at the beginign of each process the context must be added using bind method, in this way every following logs will have same context until the end of process and checking, make query in logs, and using them in monitoring systems will be much more easier.
+
+**Codex:** Added the structured logging task to `AI_USAGE.md` under `# TASKs`
+and logged the user's message verbatim in `CODEX_CHAT.md`.
+
+## 20. Step 9 Implementation
+
+**User:** start step-9 implementation
+
+**Codex:** Started Step 9 by implementing the repository / DAO layer. Added:
+
+- `src/repository/company_repository.py`
+- `src/repository/snapshot_repository.py`
+- `src/repository/upload_repository.py`
+- explicit package exports in `src/repository/__init__.py`
+- `tests/unit/test_repositories.py`
+
+The repositories cover company listing/detail/history/compare queries,
+snapshot list/detail/latest/as-of queries, and upload audit list/detail/stats
+plus source-file path lookup.
+
+Checks:
+
+- `pytest tests/unit/test_repositories.py -q -p no:cacheprovider` passed with
+  18 tests.
+- `pytest tests/unit -q -p no:cacheprovider` passed with 298 tests.
+- `ruff check src tests alembic --no-cache` passed.
+
+## 21. Step 9 Repository Review
+
+**User:** This it your implementation code review, check it out and tell me what do you think about it:
+```
+Medium: UploadRepository.get_source_file_path() trusts upload.filename when joining with data_dir (upload_repository.py (line 57)). Since this will back /uploads/{upload_id}/file, guard against path traversal by resolving the path and verifying it stays under data_dir.
+
+Medium: list methods have no pagination or limit: list_companies (line 23), list_snapshots (line 21), and list_uploads (line 23). Fine for four files, but the API/BI endpoints will want limit/offset or similar before this becomes “production-ready.”
+
+Low: compare_companies() silently drops missing companies or companies with no point-in-time snapshot (company_repository.py (line 52)). That may be okay, but the API layer should decide whether missing requested IDs are an error or represented explicitly.
+
+Low: UploadRepository.get_stats() counts DUPLICATE but not SKIPPED in duplicates_skipped (upload_repository.py (line 40)). If SKIPPED is a real pipeline status, stats should probably include or separately expose it.
+
+Low: Repository tests use SQLite and seeded IDs like 1 and 2 (test_repositories.py (line 223)). It works here, but a PostgreSQL integration test would give more confidence for timestamp, enum, and index behavior.
+```
+dont implement anything now
+
+## 22. Step 9 Repository Hardening Request
+
+**User:** do all of them:
+Fix path traversal before API file download.
+Add pagination before Step 10 endpoints.
+Decide API behavior for missing compare IDs.
+Adjust upload stats for SKIPPED.
+Implement Postgres repository integration tests also, I would like take a look at  it to make sure everything is inthe right way.
+
+**Codex:** Implemented the Step 9 repository hardening items:
+
+- `UploadRepository.get_source_file_path()` now resolves `data_dir` and the
+  candidate path, and returns `None` if the path escapes `data_dir`.
+- `list_companies`, `list_snapshots`, and `list_uploads` now accept `limit` and
+  `offset`.
+- `CompanyRepository.compare_companies()` now defaults to strict API semantics:
+  it raises `CompareCompaniesNotFoundError` when any requested company id has
+  no point-in-time snapshot. It can still be called with `require_all=False` to
+  preserve the previous drop-missing behavior.
+- `UploadStatsResponse` now includes a separate `skipped` count, and
+  `UploadRepository.get_stats()` counts `PipelineStatus.SKIPPED`.
+- Added `tests/integration/test_postgres_repositories.py`, skipped unless
+  `POSTGRES_TEST_DATABASE_URL` is set. It applies Alembic, seeds repository
+  data in a rollback transaction, and verifies repository filters, latest/as-of
+  behavior, compare errors, upload stats, and safe source-file lookup.
+
+Checks:
+
+- `pytest tests/unit -q -p no:cacheprovider` passed with 304 tests.
+- `ruff check src tests alembic --no-cache` passed.
+- `pytest tests/integration/test_postgres_repositories.py -q -p no:cacheprovider`
+  skipped cleanly without a configured PostgreSQL URL.
+- `pytest tests/integration -q -p no:cacheprovider` skipped both integration
+  tests cleanly without a configured PostgreSQL URL.
+
+## 23. Step 9 Hardening Review
+
+**User:** Check review report:
+```
+
+**Codex:** Reviewed the report and concluded:
+
+- the untracked repository files warning is a valid process issue to handle at
+  finalization/commit time;
+- `get_as_of()` date semantics are acceptable while the API uses `as_of_date`,
+  but a timestamp API should use exact instant semantics later;
+- pagination guard validation is valid and should be added either in the API or
+  repositories.
+
+## 24. Step 9 Readiness Question
+
+**User:** so can we move to the next step?
+
+**Codex:** Recommended one small cleanup before moving to Step 10: add
+repository-side pagination guards for raw `limit` and `offset` values.
+
+## 25. Pagination Guard Fix
+
+**User:** fix it
+
+**Codex:** Added shared repository pagination validation:
+
+- Created `src/repository/pagination.py` with `validate_pagination()` and
+  `MAX_PAGE_LIMIT = 500`.
+- Wired the guard into `list_companies`, `list_snapshots`, and `list_uploads`.
+- Added unit tests confirming invalid `limit`/`offset` values raise
+  `ValueError`.
+
+Checks:
+
+- `pytest tests/unit/test_repositories.py -q -p no:cacheprovider` passed with
+  36 tests.
+- `pytest tests/unit -q -p no:cacheprovider` passed with 316 tests.
+- `ruff check src tests alembic --no-cache` passed.
+- `pytest tests/integration -q -p no:cacheprovider` skipped both integration
+  tests cleanly without a configured PostgreSQL URL.
+Medium: src/repository/__init__.py now imports company_repository, snapshot_repository, and upload_repository, but those files are still untracked. If only tracked files are committed, import src.repository will break in a clean checkout. Add the new repository modules and repository tests when this step is finalized. See init.py (line 14).
+
+
+
+
+Low/Design: SnapshotRepository.get_as_of() implements “any snapshot valid during this calendar date” semantics by checking valid_from <= end_of_day and valid_to > start_of_day. That is probably okay because the API spec says as_of_date, but it is not a precise instant-in-time lookup. If later the API accepts a timestamp, this should become an exact valid_from <= as_of < valid_to query. See snapshot_repository.py (line 84).
+
+
+
+
+Low: repository pagination accepts raw limit/offset values without guards. The API layer should enforce limit >= 1, max limit, and offset >= 0; otherwise invalid query params may produce database-specific behavior. See company_repository.py (line 33), snapshot_repository.py (line 21), and upload_repository.py (line 23).
+```

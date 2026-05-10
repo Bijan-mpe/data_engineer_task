@@ -164,6 +164,7 @@ def test_upload_stats_defaults_to_zero():
     stats = UploadStatsResponse()
     assert stats.total_uploads == 0
     assert stats.duplicates_skipped == 0
+    assert stats.skipped == 0
 
 
 # ── aggregate responses ───────────────────────────────────────────────────────

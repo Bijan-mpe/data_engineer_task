@@ -10,3 +10,14 @@ Modules:
   snapshot_repository  — queries against the snapshot fact table
   upload_repository    — queries against the upload audit table
 """
+
+from src.repository.company_repository import CompanyRepository, CompareCompaniesNotFoundError
+from src.repository.snapshot_repository import SnapshotRepository
+from src.repository.upload_repository import UploadRepository
+
+__all__ = [
+    "CompanyRepository",
+    "CompareCompaniesNotFoundError",
+    "SnapshotRepository",
+    "UploadRepository",
+]

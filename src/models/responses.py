@@ -145,6 +145,7 @@ class UploadStatsResponse(BaseModel):
     successful: int = 0
     failed: int = 0
     duplicates_skipped: int = 0
+    skipped: int = 0
     total_records: int = 0
 
 
