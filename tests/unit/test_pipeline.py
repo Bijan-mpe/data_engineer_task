@@ -17,7 +17,7 @@ from unittest.mock import patch
 
 import pytest
 from sqlalchemy import create_engine, select, text
-from sqlalchemy.exc import OperationalError
+from sqlalchemy.exc import IntegrityError, OperationalError
 from sqlalchemy.orm import Session
 
 from src.core.constants import PipelineStatus
@@ -576,3 +576,38 @@ class TestLoadRetry:
             with pytest.raises(OperationalError):
                 pipeline._load_with_retry(plan, datetime(2024, 1, 1, tzinfo=timezone.utc))
         assert mock_load.call_count == 3
+
+    def test_load_with_retry_retries_company_identity_race(
+        self, pipeline, make_raw_master_dict
+    ):
+        plan = pipeline.transform(_make_extracted(make_raw_master_dict))
+        race = IntegrityError(
+            "insert",
+            {},
+            Exception('duplicate key value violates unique constraint "uq_company_identity"'),
+        )
+        with patch.object(pipeline, "load", side_effect=[race, 8]) as mock_load, \
+             patch("src.pipeline.pipeline.time.sleep") as mock_sleep:
+            records_written = pipeline._load_with_retry(
+                plan,
+                datetime(2024, 1, 1, tzinfo=timezone.utc),
+            )
+        assert records_written == 8
+        assert mock_load.call_count == 2
+        mock_sleep.assert_called_once()
+
+    def test_load_with_retry_does_not_retry_other_integrity_errors(
+        self, pipeline, make_raw_master_dict
+    ):
+        plan = pipeline.transform(_make_extracted(make_raw_master_dict))
+        not_company_race = IntegrityError(
+            "insert",
+            {},
+            Exception('duplicate key value violates unique constraint "other_constraint"'),
+        )
+        with patch.object(pipeline, "load", side_effect=not_company_race) as mock_load, \
+             patch("src.pipeline.pipeline.time.sleep") as mock_sleep:
+            with pytest.raises(IntegrityError):
+                pipeline._load_with_retry(plan, datetime(2024, 1, 1, tzinfo=timezone.utc))
+        assert mock_load.call_count == 1
+        mock_sleep.assert_not_called()

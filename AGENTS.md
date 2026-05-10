@@ -2,7 +2,7 @@ This file provides guidance to Codex Code  when working with code in this reposi
 
 ## Project
 
-Senior Data Engineer assignment: build a production-ready pipeline that ingests `.xlsm` Excel files, models corporate credit-rating metadata in a PostgreSQL data warehouse, exposes it through a FastAPI REST API, and packages everything with Docker Compose. No code exists yet — only source data in `data/` and the spec in `README.md`.
+Senior Data Engineer assignment: build a production-ready pipeline that ingests `.xlsm` Excel files, models corporate credit-rating metadata in a PostgreSQL data warehouse, exposes it through a FastAPI REST API, and packages everything with Docker Compose. The repository is being implemented step by step; inspect the current code and tests before making assumptions about which layers already exist.
 
 ## Commands
 
@@ -22,7 +22,7 @@ make docker-up        # docker-compose up -d
 make docker-down      # docker-compose down
 ```
 
-Run a single test file: `pytest tests/unit/test_imports.py -v`
+Run a single test file: `pytest tests/unit/test_pipeline.py -v`
 
 ## Architecture
 

@@ -55,10 +55,11 @@ from src.pipeline.validator import validate
 logger = get_logger(__name__)
 
 _MAX_LOAD_ATTEMPTS = 3
+_COMPANY_IDENTITY_CONSTRAINT = "uq_company_identity"
 
 
 class Pipeline:
-    """Orchestrates the extract → validate → load stages for .xlsm source files.
+    """Orchestrates extract → validate → transform → load for .xlsm files.
 
     Parameters
     ----------
@@ -350,10 +351,29 @@ class Pipeline:
             logger.exception("Failed to write audit record for %s", filename)
 
     def _load_with_retry(self, plan: LoadPlan, now: datetime) -> int:
-        """Run load with bounded retries for transient database failures."""
+        """Run load with bounded retries for transient database failures.
+
+        A concurrent first load for the same company can race on the
+        ``uq_company_identity`` constraint.  Retrying the full load lets the
+        loser roll back its failed insert, re-read the company created by the
+        winner, and continue with the normal SCD2 path.
+        """
         for attempt in range(1, _MAX_LOAD_ATTEMPTS + 1):
             try:
                 return self.load(plan, now)
+            except IntegrityError as exc:
+                self._session.rollback()
+                if not self._is_company_identity_race(exc) or attempt == _MAX_LOAD_ATTEMPTS:
+                    raise
+                delay = 0.1 * (2 ** (attempt - 1))
+                logger.warning(
+                    "Company identity race for %s; retrying in %.1fs (%d/%d)",
+                    plan.filename,
+                    delay,
+                    attempt,
+                    _MAX_LOAD_ATTEMPTS,
+                )
+                time.sleep(delay)
             except OperationalError:
                 self._session.rollback()
                 if attempt == _MAX_LOAD_ATTEMPTS:
@@ -368,6 +388,19 @@ class Pipeline:
                 )
                 time.sleep(delay)
         raise RuntimeError("unreachable load retry state")
+
+    def _is_company_identity_race(self, exc: IntegrityError) -> bool:
+        """Return True when *exc* is the company natural-key race condition."""
+        message = str(exc).lower()
+        original = str(getattr(exc, "orig", "")).lower()
+        return (
+            _COMPANY_IDENTITY_CONSTRAINT in message
+            or _COMPANY_IDENTITY_CONSTRAINT in original
+            or (
+                "company.rated_entity" in original
+                and "company.country_of_origin" in original
+            )
+        )
 
     def _load_data(
         self, plan: LoadPlan, audit_id: int, now: datetime
@@ -512,10 +545,11 @@ def main() -> None:
     from src.core.config import settings
     from src.core.db import session_scope
 
+    logger.info("Pipeline starting — data_dir=%s", settings.data_dir)
+
     with session_scope() as session:
         pipeline = Pipeline(session)
         batch_report = pipeline.process_directory_report(settings.data_dir)
-
     logger.info(
         "Pipeline complete — %d succeeded, %d failed, %d duplicate, %d records, %.2fs",
         batch_report.succeeded,

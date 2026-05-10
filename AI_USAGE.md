@@ -47,6 +47,7 @@ Reflect on your AI usage:
 - Implemented lots of tests that is so time consuming when it is going to be writen by human.(It made wrong tests, but, overal speed by fixing the wrong test its also faster than me at the end than)
 - It found complex bugs main reasons.
 - Creating regex evaluation.
+- Implement Pipeline with details, but with some bugs
 **What did you need to correct or override?**
 - I need to correct the project structure
 - I need to define step of implementation and base principals of clean code.
@@ -63,6 +64,7 @@ Reflect on your AI usage:
 - I changed the pattern of migrations file names. 
 - In step7, validation implementation, some validations are places in pydantic models and another some in validator, it make two problem, one is that there are tow place to look for future development, second is inconsistent behavior. Pydantic raises on first error then validator collects all errors. If weight sum is in Pydantic and risk_score is in the validator, the pipeline behaves differently depending on which rule fails. 
 I think all the validations must be implemented inside validator. 
+- Logging is not based on the principal I defined, I will fix it at the end if I have time.
 - 
 **What did you implement entirely on your own?**
 
@@ -79,3 +81,22 @@ Based on your experience, what advice would you give to others using AI tools fo
 
 
 Thank you for your transparency!
+
+<!-- these section is not about ai agents -->
+# Implementation assumption
+- at each time one instance of the pipeline is runnign. I handled some concurrent runing issues but I have not deeply check if it is safe to run several instance of a pipeline at same time with shared data/ volume.
+- I assume that idempotency can be based on file content, but there can be other case that data analyst want to test same content as a test case, in the case hash of filename+filecontent is better.
+- 
+# TASKs
+
+- [ ] Expand the Step 8 run summary into a full data-quality report. Current
+  `PipelineBatchReport.validation_error_count` only counts validator errors
+  attached to per-file reports; extraction failures, load failures, audit-write
+  failures, warning counts, validity rates, and rule-level completeness metrics
+  should be represented in a later reporting step.
+- [ ] Convert all logs to JSON structured logs using `structlog`. At the
+  beginning of each process, bind shared context with `structlog`'s `bind`
+  pattern so every following log line carries the same process/file/run
+  context until the process finishes. This will make log querying, checking,
+  and monitoring-system integration much easier.
+- [ ] 
