@@ -1,4 +1,4 @@
-.PHONY: install dev pipeline test test-unit test-integration test-cov lint format migrate migrate-down docker-up docker-down docker-build
+.PHONY: install dev pipeline test test-unit test-integration test-cov lint format migrate migrate-down migration docker-up docker-down docker-build
 
 PYTHONPATH := $(shell pwd)
 
@@ -24,10 +24,13 @@ test-cov:
 	pytest tests/ --cov=src --cov-report=html
 
 lint:
-	ruff check src/ tests/
+	ruff check src/ tests/ alembic/
 
 format:
-	ruff format src/ tests/
+	ruff format src/ tests/ alembic/
+
+migration:
+	PYTHONPATH=$(PYTHONPATH) python alembic/new_migration.py "$(MSG)"
 
 migrate:
 	PYTHONPATH=$(PYTHONPATH) alembic upgrade head

@@ -189,7 +189,7 @@ class CompanySnapshot(Base):
         DateTime(timezone=True), nullable=True
     )
     is_current: Mapped[bool] = mapped_column(
-        Boolean, nullable=False, default=True, index=True
+        Boolean, nullable=False, default=True, server_default=text("true"), index=True
     )
 
     # Snapshot-level metadata (can vary between file versions)
@@ -368,7 +368,9 @@ class ScopeMetric(Base):
     )
     metric_name: Mapped[str] = mapped_column(Text, nullable=False)
     year: Mapped[int] = mapped_column(Integer, nullable=False)
-    is_estimate: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    is_estimate: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=text("false")
+    )
     value: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()

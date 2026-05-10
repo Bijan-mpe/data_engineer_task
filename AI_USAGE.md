@@ -43,7 +43,9 @@ Attach or link to chat history logs showing AI interactions.
 Reflect on your AI usage:
 
 **What did AI do well?**
-
+- defining sqlalchemy orm bestpractices of the last version.
+- Implemented lots of tests that is so time consuming when it is going to be writen by human.(It made wrong tests, but, overal speed by fixing the wrong test its also faster than me at the end than)
+- It found complex bugs main reasons.
 **What did you need to correct or override?**
 - I need to correct the project structure
 - I need to define step of implementation and base principals of clean code.
@@ -56,6 +58,8 @@ Reflect on your AI usage:
 - It used UUID for upload_audit, that is good but to make it simple to read logs and etc, I suggest to change to int.
 - It didn't checked whole industry weights, it must be 1 and because it is float and is not very acurate in some cases like 0.333 + 0.333 + 0.334 = 1.0000000000000002, i sugest validate if th whole weight is between .99 and 1.01.
 - It puted reporting_currency, accounting_principles, business_year_end, segmentation_criteria fields inside company in sugested erd, inside __init__.py coments. I suggest to move them to the snapshot table.
+- it forgot to add version_number to snapshot records. 
+- I changed the pattern of migrations file names. 
 **What did you implement entirely on your own?**
 
 **How did AI tools improve your development process?**
@@ -67,7 +71,7 @@ Reflect on your AI usage:
 ## 6. Recommendations
 Based on your experience, what advice would you give to others using AI tools for data engineering tasks?
 - for this project I prefered to avoide SKILLs because I did not have much time to create them and I didn't also want to download ready skills from github to make sure everything is under control, but by using them the code quality will be improved.
-
+- I use two AI at same time Claude that generates code, files and writes to repo, and Codex tha just reviews the repo and suggests improvement or finds bugs. 
 
 
 Thank you for your transparency!
